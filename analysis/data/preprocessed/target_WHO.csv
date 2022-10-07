@@ -1,0 +1,195 @@
+"country","iso3","excess_death"
+"Afghanistan","AFG",42991
+"Albania","ALB",12349
+"Algeria","DZA",68542
+"Andorra","AND",354
+"Angola","AGO",21905
+"Antigua and Barbuda","ATG",-23
+"Argentina","ARG",86691
+"Armenia","ARM",19017
+"Australia","AUS",-14142
+"Austria","AUT",10852
+"Azerbaijan","AZE",53982
+"Bahamas","BHS",959
+"Bahrain","BHR",696
+"Bangladesh","BGD",138530
+"Barbados","BRB",-381
+"Belarus","BLR",46346
+"Belgium","BEL",16970
+"Belize","BLZ",652
+"Benin","BEN",11600
+"Bhutan","BTN",-396
+"Bolivia (Plurinational State of)","BOL",78460
+"Bosnia and Herzegovina","BIH",14431
+"Botswana","BWA",7231
+"Brazil","BRA",669508
+"Brunei Darussalam","BRN",-97
+"Bulgaria","BGR",53883
+"Burkina Faso","BFA",21154
+"Burundi","BDI",9026
+"Cabo Verde","CPV",903
+"Cambodia","KHM",11985
+"Cameroon","CMR",33905
+"Canada","CAN",20718
+"Central African Republic","CAF",6076
+"Chad","TCD",18361
+"Chile","CHL",36662
+"China","CHN",-92209
+"Colombia","COL",161164
+"Comoros","COM",672
+"Congo","COG",4326
+"Cook Islands","COK",-32
+"Costa Rica","CRI",9484
+"Côte d'Ivoire","CIV",24428
+"Croatia","HRV",15126
+"Cuba","CUB",18113
+"Cyprus","CYP",1039
+"Czechia","CZE",33585
+"Democratic People's Republic of Korea","PRK",-6857
+"Democratic Republic of the Congo","COD",113672
+"Denmark","DNK",2955
+"Djibouti","DJI",1718
+"Dominica","DMA",-1
+"Dominican Republic","DOM",11436
+"Ecuador","ECU",79514
+"Egypt","EGY",243149
+"El Salvador","SLV",16710
+"Equatorial Guinea","GNQ",1664
+"Eritrea","ERI",2192
+"Estonia","EST",3077
+"Eswatini","SWZ",3633
+"Ethiopia","ETH",100265
+"Fiji","FJI",-76
+"Finland","FIN",2581
+"France","FRA",76358
+"Gabon","GAB",1527
+"Gambia","GMB",2837
+"Georgia","GEO",21097
+"Germany","DEU",173352
+"Ghana","GHA",19737
+"Greece","GRC",17088
+"Grenada","GRD",-248
+"Guatemala","GTM",46984
+"Guinea","GIN",12038
+"Guinea-Bissau","GNB",2769
+"Guyana","GUY",2663
+"Haiti","HTI",9374
+"Honduras","HND",22451
+"Hungary","HUN",32236
+"Iceland","ISL",-34
+"India","IND",4599800
+"Indonesia","IDN",1024785
+"Iran (Islamic Republic of)","IRN",233179
+"Iraq","IRQ",65502
+"Ireland","IRL",2861
+"Israel","ISR",6309
+"Italy","ITA",158160
+"Jamaica","JAM",3444
+"Japan","JPN",-15522
+"Jordan","JOR",10987
+"Kazakhstan","KAZ",73147
+"Kenya","KEN",28742
+"Kiribati","KIR",-41
+"Kuwait","KWT",4237
+"Kyrgyzstan","KGZ",11778
+"Lao People's Democratic Republic","LAO",1101
+"Latvia","LVA",7217
+"Lebanon","LBN",17241
+"Lesotho","LSO",3819
+"Liberia","LBR",3938
+"Libya","LBY",7474
+"Lithuania","LTU",16254
+"Luxembourg","LUX",47
+"Madagascar","MDG",24088
+"Malawi","MWI",16335
+"Malaysia","MYS",4949
+"Maldives","MDV",220
+"Mali","MLI",26252
+"Malta","MLT",468
+"Marshall Islands","MHL",-75
+"Mauritania","MRT",6690
+"Mauritius","MUS",503
+"Mexico","MEX",629876
+"Micronesia (Federated States of)","FSM",-105
+"Monaco","MCO",46
+"Mongolia","MNG",-360
+"Montenegro","MNE",3677
+"Morocco","MAR",34474
+"Mozambique","MOZ",40299
+"Myanmar","MMR",43155
+"Namibia","NAM",7518
+"Nauru","NRU",0
+"Nepal","NPL",31790
+"Netherlands","NLD",25724
+"New Zealand","NZL",-2763
+"Nicaragua","NIC",11944
+"Niger","NER",33126
+"Nigeria","NGA",177770
+"Niue","NIU",0
+"North Macedonia","MKD",14581
+"Norway","NOR",-85
+"Oman","OMN",11423
+"Pakistan","PAK",224391
+"Palau","PLW",-39
+"Panama","PAN",7524
+"Papua New Guinea","PNG",555
+"Paraguay","PRY",19564
+"Peru","PER",285041
+"Philippines","PHL",175325
+"Poland","POL",134957
+"Portugal","PRT",20548
+"Qatar","QAT",1506
+"Republic of Korea","KOR",2484
+"Republic of Moldova","MDA",16400
+"Romania","ROU",105462
+"Russian Federation","RUS",1005975
+"Rwanda","RWA",5129
+"Saint Kitts and Nevis","KNA",-200
+"Saint Lucia","LCA",346
+"Saint Vincent and the Grenadines","VCT",454
+"Samoa","WSM",-87
+"San Marino","SMR",162
+"Sao Tome and Principe","STP",183
+"Saudi Arabia","SAU",17809
+"Senegal","SEN",16181
+"Serbia","SRB",52196
+"Seychelles","SYC",1
+"Sierra Leone","SLE",7510
+"Singapore","SGP",1234
+"Slovakia","SVK",22101
+"Slovenia","SVN",5276
+"Solomon Islands","SLB",-58
+"Somalia","SOM",34748
+"South Africa","ZAF",225187
+"South Sudan","SSD",8806
+"Spain","ESP",102550
+"Sri Lanka","LKA",-9565
+"Sudan","SDN",36435
+"Suriname","SUR",694
+"Sweden","SWE",8984
+"Switzerland","CHE",8050
+"Syrian Arab Republic","SYR",6901
+"Tajikistan","TJK",12811
+"Thailand","THA",9182
+"The United Kingdom","GBR",146571
+"Timor-Leste","TLS",675
+"Togo","TGO",-6141
+"Tonga","TON",-35
+"Trinidad and Tobago","TTO",1699
+"Tunisia","TUN",23290
+"Turkey","TUR",248937
+"Turkmenistan","TKM",626
+"Tuvalu","TUV",-10
+"Uganda","UGA",19470
+"Ukraine","UKR",185057
+"United Arab Emirates","ARE",2364
+"United Republic of Tanzania","TZA",38170
+"United States of America","USA",877392
+"Uruguay","URY",2720
+"Uzbekistan","UZB",42269
+"Vanuatu","VUT",-77
+"Venezuela (Bolivarian Republic of)","VEN",21549
+"Viet Nam","VNM",-19873
+"Yemen","YEM",32549
+"Zambia","ZMB",22535
+"Zimbabwe","ZWE",17036
