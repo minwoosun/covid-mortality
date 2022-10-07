@@ -1,0 +1,453 @@
+---
+title: "World Analysis"
+author: "Min Woo Sun and David Troxell"
+date: "5/21/2022"
+output: html_document
+#Date edited: 9/15/22
+---
+
+
+Summary
+- Fit OLS on static + modifiable features + grouped policies. Any combo of these types of features can be tested
+
+- Fit LASSO on static + modifiable features + grouped policies. Any combo of these types of features can be tested
+
+```{r}
+here::i_am("analysis/World/code/analysis_world_WHO_trust_10M_linear.Rmd")
+library(here)
+library(dplyr)
+library(ggplot2)
+library(glmnet)
+library(caret)
+library(gbm)
+library(reshape2)
+library(reshape)
+library(pdp)
+library(plotly)
+
+source(here::here("analysis/World/code/helper_functions.R"))
+
+set.seed(100)
+```
+
+
+
+
+
+#### Preprocessing
+```{r}
+# load data
+df = read.csv(here::here("analysis/World/data/preprocessed","XY_WHO_trust.csv"))
+iso = df$iso
+
+# exclude features due to either multicollinearity identified in other scripts, or because of variables' status as just a name/identifier
+index.exclude = which(names(df) %in% c("iso",
+                                       "Days_Until_All_Vulnerable_Vacc_Elig",
+                                       "Ages_15_To_64_Percent",
+                                       "V1",
+                                       "Sub.region.Name",
+                                       "Health_Expenditure_Per_Capita",
+                                       "Ages_0_To_14_Percent",
+                                       "Vaccines_Safe_50Plus",
+                                       "Trust_In_Journalists",
+                                       "Percent_Health_Expenditure_Private",
+                                       "Avg_Gov_Stringency_Index",
+                                       "Percent_Ppl_Poor_Air_Quality",
+                                       "Percent_Using_Internet"
+                                       ))
+
+# convert region variables into factor
+df$Region.Name <- as.factor(df$Region.Name)
+df$Sub.region.Name <- as.factor(df$Sub.region.Name)
+
+
+#filter for 10M. Discussed in paper
+N = 5000000
+iso=iso[df$Population>N]
+Y = df[df$Population>N, "excess_death"]
+df = df[df$Population>N,-index.exclude]
+
+# Convert Y into crude rate from count 
+X = df %>% select(-excess_death)
+Y = (Y / X$Population) * 100000
+
+
+###########################################
+# Log transform and scale skewed features #
+###########################################
+X[,'Population'] = log(X[,'Population']+1)
+X[,"People_Per_Sq_Km_of_Land"] = log(X[,"People_Per_Sq_Km_of_Land"]+.01)
+X[,"GDP_Per_Capita"] = log(X[,"GDP_Per_Capita"]+.01)
+X[,"Health_Expenditure_Per_Capita"] = log(X[,"Health_Expenditure_Per_Capita"]+.01)
+
+###########################################
+# Transform and Z-score target variable   #
+###########################################
+# apply none (0) log (1) or cube root (2) transform then scale target
+Y = cube_root(Y)
+
+```
+
+
+```{r}
+# scale for linear models
+index.reg <- which(names(X) == "Region.Name")
+
+# apply centering and scaling
+X.unscaled = X
+X.scaled = X
+# 
+# # scaling
+X.scaled[,-index.reg] = scale(X[,-index.reg], scale=TRUE)
+```
+
+
+```{r}
+# one-hot encode region / sub-region variables
+##############
+# continents #
+##############
+
+#define one-hot encoding function
+dummy <- dummyVars(" ~ .", data=X)
+
+#perform one-hot encoding on data frame
+X.dummy <- data.frame(predict(dummy, newdata=X))
+
+# drop columns with 0 variance -> just Oceania
+X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
+
+X = X.dummy
+
+
+##############
+# sub-region #
+##############
+
+# #define one-hot encoding function
+# dummy <- dummyVars(" ~ .", data=X)
+# 
+# #perform one-hot encoding on data frame
+# X.dummy <- data.frame(predict(dummy, newdata=X))
+# 
+# # # drop columns with 0 variance -> just Oceania
+# # X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
+# 
+# index.sub <- grep("Sub", names(X.dummy), fixed=TRUE)
+# names.sub.region <- names(X.dummy)[index.sub]
+# 
+# #apply(X.dummy, MARGIN=2, FUN=var)
+# 
+# X = X.dummy
+
+```
+
+
+```{r}
+##########################################
+#             set indices                #
+##########################################
+
+# static features
+index.static = which(names(X) %in% c("Population",
+                                      "Obese_Adult_Percentage",
+                                      "Hospital_Beds_Per_1000",
+                                      "Nurses_And_Midwives_Per_1000",
+                                      "People_Per_Sq_Km_of_Land" ,
+                                      "GDP_Per_Capita",
+                                      "Age_65_Older_Percent",
+                                      "Trust_In_Neighborhood",
+                                      "Trust_In_Govt"
+                                     ))
+
+# modifiable features -- exclude grouping, policy 
+index.modifiable = which(names(X) %in% c("Percent_One_Dose_As_Of_Nov_1",
+                                          "Total_Days_Over_1_Test_Per_Thousand"
+                                          ))  
+
+#  modifiable policy features without PCA
+index.policy.ungrouped = which(names(X) %in% c("Days_Until_All_Vulnerable_Vacc_Elig",
+                                                "Days_Until_Masks_Recommended",
+                                                "Days_Until_Masks_Required",
+                                                "Days_Until_Workplace_Closures_Except_Key",           
+                                                "Days_Until_Testing_Key_Groups",  
+                                                "Total_Days_Masks_Required_Public",
+                                                "Total_Days_Masks_At_Least_Recommended",
+                                                "Total_Days_Workplace_Closures_Except_Key",
+                                                "Total_Days_Workplace_Closures_Recommended",
+                                                "Total_Days_Stay_At_Home_Required_Except_Essentials",
+                                                "Total_Days_Comprehensive_Contact_Tracing",
+                                                "Total_Days_Open_Public_Testing"
+                                               ))
+
+# modifiable policy features grouped
+index.policy.grouped = which(names(X) %in% c("Govt_Swiftness_Stringency",
+                                              "Govt_Persistent_Stringency"))
+
+# index for dummy variable continent
+index.region = which(names(X) %in% c("Region.Name.Africa",
+                                     "Region.Name.Americas",
+                                     "Region.Name.Asia",
+                                     "Region.Name.Europe"
+                                     ))
+
+#modifiable trust
+index.trust = which(names(X) %in% c( "Trust_Covid_Advice_Govt"))
+```    
+
+
+```{r}
+# get indices for countries of interest
+index.USA = which(iso == "USA")
+index.CAN = which(iso == "CAN")
+
+index.KOR = which(iso == "KOR")
+index.DEU = which(iso == "DEU")
+index.MEX = which(iso == "MEX")
+index.MMR = which(iso == "MMR")
+
+index.ITA = which(iso == "ITA")
+index.FRA = which(iso == "FRA")
+index.GBR = which(iso == "GBR")
+```
+
+```{r}
+# Create Function to display Correlation Matrix
+displayCorrMat<-function(numericTrustMetrics){
+cormat1 <- round(x = cor(numericTrustMetrics), digits = 1)
+cormat1[lower.tri(cormat1)]<- NA
+melted_cormat1 <- melt(cormat1,as.is = TRUE)
+ p<-ggplot(data = melted_cormat1, aes(X1, X2, fill = value))+
+   geom_tile(color = "white")+geom_text(aes(label = value),size = 2)+
+   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                        midpoint = 0, limit = c(-1,1), space = "Lab", 
+                        name="Pearson\nCorrelation") +
+   theme_minimal()+ 
+   theme(axis.text.x = element_text(angle = 75, vjust = 1, 
+                                    size = 8, hjust = 1))+
+   coord_fixed()
+ print(p)
+}
+```
+
+
+#################
+###  OLS        #
+#################
+
+```{r}
+set.seed(1)
+
+# select features for X
+# user can select any subset of these options or use index.policy.ungrouped as well
+fit.indices = c(index.static,
+                index.region,
+                index.trust,
+                index.modifiable,
+                index.policy.grouped)
+
+allData<-cbind(X[,c(fit.indices) ],Y)
+
+#save all predictions made throughout CV process. Each point will be predicted 100 times
+control <- trainControl(method='repeatedcv',
+                        number=5,
+                        repeats=100,
+                        savePredictions ="all")
+
+#run cv process
+fit <- train(Y~.,data=allData, method='lm',tuneGrid=expand.grid(intercept = FALSE), trControl=control)
+
+#obtain all predictions made in cv process
+preds<-fit$pred$pred
+actual<-fit$pred$obs
+
+#convert to original scale
+preds_untrsf <- preds^3
+actual_untrsf <- actual^3
+
+fit$finalModel %>% summary
+compute_rMSE(preds_untrsf, actual_untrsf)
+cor(preds_untrsf, actual_untrsf, method="spearman")
+
+finalSubset<-fit$pred
+
+#investigate individual countries
+
+#get predictions where row index was
+USpreds<-finalSubset[finalSubset$rowIndex == index.USA,1]
+Canadapreds<-finalSubset[finalSubset$rowIndex == index.CAN,1]
+Koreapreds <- finalSubset[finalSubset$rowIndex == index.KOR,1]
+Mexicopreds <- finalSubset[finalSubset$rowIndex == index.MEX,1]
+Germanypreds <- finalSubset[finalSubset$rowIndex == index.DEU,1]
+Myanmarpreds <- finalSubset[finalSubset$rowIndex == index.MMR,1]
+Italypreds <- finalSubset[finalSubset$rowIndex == index.ITA,1]
+Francepreds <- finalSubset[finalSubset$rowIndex == index.FRA,1]
+Britainpreds <- finalSubset[finalSubset$rowIndex == index.GBR,1]
+
+#get these predictions on original scale
+us_preds_untrsf <-  USpreds^3
+can_preds_untrsf <- Canadapreds^3
+kor_preds_untrsf <- Koreapreds^3
+deu_preds_untrsf <- Germanypreds^3
+mex_preds_untrsf <- Mexicopreds^3
+mmr_preds_untrsf <- Myanmarpreds^3
+ita_preds_untrsf <- Italypreds^3
+fra_preds_untrsf <- Francepreds^3
+gbr_preds_untrsf <- Britainpreds^3
+
+#get actual US and Canada values
+us_actual<-Y[index.USA]^3
+canada_actual<-Y[index.CAN]^3
+korea_actual<-Y[index.KOR]^3
+germany_actual<-Y[index.DEU]^3
+mexico_actual<-Y[index.MEX]^3
+myanmar_actual<-Y[index.MMR]^3
+italy_actual <- Y[index.ITA]^3
+france_actual <- Y[index.FRA]^3
+britain_actual <- Y[index.GBR]^3
+
+
+#investigate
+paste0("USA observed: ",us_actual)
+paste0("USA predicted: ", mean(us_preds_untrsf))
+
+paste0("CAN observed: ",canada_actual)
+paste0("CAN predicted: ", mean(can_preds_untrsf))
+
+paste0("KOR observed: ", korea_actual)
+paste0("KOR predicted: ", mean(kor_preds_untrsf))
+
+paste0("DEU observed: ", germany_actual)
+paste0("DEU predicted: ", mean(deu_preds_untrsf))
+
+paste0("MEX observed: ", mexico_actual)
+paste0("MEX predicted: ", mean(mex_preds_untrsf))
+
+paste0("MMR observed: ", myanmar_actual)
+paste0("MMR predicted: ", mean(mmr_preds_untrsf))
+
+paste0("ITA observed: ", italy_actual)
+paste0("ITA predicted: ", mean(ita_preds_untrsf))
+
+paste0("FRA observed: ", france_actual)
+paste0("FRA predicted: ", mean(fra_preds_untrsf))
+
+paste0("GBR observed: ", britain_actual)
+paste0("GBR predicted: ", mean(gbr_preds_untrsf))
+```
+
+#################
+###     LASSO   #
+#################
+```{r}
+set.seed(1)
+
+# select features for X
+# user can select any subset of these options or use index.policy.ungrouped as well
+fit.indices = c(index.static,
+                index.region,
+                index.trust,
+                index.modifiable,
+                index.policy.grouped)
+
+control <- trainControl(method='repeatedcv', 
+                        number=5, 
+                        repeats=100,
+                        savePredictions ="all") 
+
+tunegrid <- expand.grid(alpha = 1, lambda = seq(.000001, 1, length.out = 100))
+
+lasso<- train(Y~.,data=allData, method='glmnet',tuneGrid=tunegrid, trControl=control )
+
+#obtain all predictions made in cv process
+allPreds<-lasso$pred
+#obtain best hyperparameter value
+finalLambda<-lasso$bestTune[2]
+
+#find the CV predictions (i.e. preval) for best hyperparameter
+finalSubset<-subset(allPreds,lambda==as.numeric(finalLambda))
+
+preds<-finalSubset$pred
+actual<-finalSubset$obs
+
+#original scale
+preds_untrsf <-  preds^3
+actual_untrsf <-  actual^3
+
+#overall summary
+compute_rMSE(preds_untrsf, actual_untrsf)
+
+#boxplot of CV RMSE for each repetition
+allRMSELasso <-c()
+index<-1
+for(i in 1:100){
+  predsTemp<-preds[index:(index+nrow(allData)-1)]
+  actualTemp<-actual[index:(index+nrow(allData)-1)]
+  preds_untrsf <- predsTemp^3
+  actual_untrsf <-  actualTemp^3
+  allRMSELasso <- c(allRMSELasso,compute_rMSE(preds_untrsf, actual_untrsf))
+  index<-index+nrow(allData)
+}
+boxplot(allRMSELasso)
+
+##code used to make comparison boxplot with the other methods
+#par(mar = c(10, 5, 5, 5) + 0.1)
+#boxplot(allRMSEBoost,allRMSERf,allRMSELasso,
+#   col=c("skyblue3","seagreen3","sienna2"),cex.axis=1.75,xaxt = "n")
+## Draw the x-axis labels.
+#text(x = 1:3,
+     ## Move labels to just below bottom of chart.
+#     y = par("usr")[3] - 4.5,
+#     ## Use names from the data list.
+#     labels = c("Gradient Boosting","Random Forest","LASSO"),
+#     ## Change the clipping region.
+#     xpd = NA,
+#     ## Rotate the labels by 35 degrees.
+#     srt = 50,
+#     ## Adjust the labels to almost 100% right-justified.
+#     adj = .965,
+#     ## Increase label size.
+#     cex = 1.75)
+
+
+#investigate individual countries
+USpreds<-finalSubset[finalSubset$rowIndex == index.USA,1]
+Canadapreds<-finalSubset[finalSubset$rowIndex == index.CAN,1]
+Koreapreds <- finalSubset[finalSubset$rowIndex == index.KOR,1]
+Mexicopreds <- finalSubset[finalSubset$rowIndex == index.MEX,1]
+Germanypreds <- finalSubset[finalSubset$rowIndex == index.DEU,1]
+Myanmarpreds <- finalSubset[finalSubset$rowIndex == index.MMR,1]
+Italypreds <- finalSubset[finalSubset$rowIndex == index.ITA,1]
+Francepreds <- finalSubset[finalSubset$rowIndex == index.FRA,1]
+Britainpreds <- finalSubset[finalSubset$rowIndex == index.GBR,1]
+
+#get these predictions on original scale
+us_preds_untrsf <-  USpreds^3
+can_preds_untrsf <- Canadapreds^3
+kor_preds_untrsf <- Koreapreds^3
+deu_preds_untrsf <- Germanypreds^3
+mex_preds_untrsf <- Mexicopreds^3
+mmr_preds_untrsf <- Myanmarpreds^3
+ita_preds_untrsf <- Italypreds^3
+fra_preds_untrsf <- Francepreds^3
+gbr_preds_untrsf <- Britainpreds^3
+
+#get actual US and Canada values
+us_actual<-Y[index.USA]^3
+canada_actual<-Y[index.CAN]^3
+korea_actual<-Y[index.KOR]^3
+germany_actual<-Y[index.DEU]^3
+mexico_actual<-Y[index.MEX]^3
+myanmar_actual<-Y[index.MMR]^3
+italy_actual <- Y[index.ITA]^3
+france_actual <- Y[index.FRA]^3
+britain_actual <- Y[index.GBR]^3
+
+
+#investigate
+paste0("USA observed: ",us_actual)
+paste0("USA predicted: ", mean(us_preds_untrsf))
+
+paste0("CAN observed: ",canada_actual)
+paste0("CAN predicted: ", mean(can_preds_untrsf))
+```
