@@ -13,7 +13,7 @@ Summary
 - Fit LASSO on static + modifiable features + grouped policies. Any combo of these types of features can be tested
 
 ```{r}
-here::i_am("analysis/World/code/analysis_world_WHO_trust_10M_linear.Rmd")
+here::i_am("analysis/code/analysis_world_WHO_trust_10M_linear.Rmd")
 library(here)
 library(dplyr)
 library(ggplot2)
@@ -25,7 +25,7 @@ library(reshape)
 library(pdp)
 library(plotly)
 
-source(here::here("analysis/World/code/helper_functions.R"))
+source(here::here("analysis/code/helper_functions.R"))
 
 set.seed(100)
 ```
@@ -37,7 +37,7 @@ set.seed(100)
 #### Preprocessing
 ```{r}
 # load data
-df = read.csv(here::here("analysis/World/data/preprocessed","XY_WHO_trust.csv"))
+df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
 iso = df$iso
 
 # exclude features due to either multicollinearity identified in other scripts, or because of variables' status as just a name/identifier

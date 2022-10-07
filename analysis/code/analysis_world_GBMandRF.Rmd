@@ -17,7 +17,7 @@ Summary
 -Partial Dependency plots as shown in paper
 
 ```{r}
-here::i_am("analysis/World/code/analysis_world_WHO_trust_10M_rfgbm.Rmd")
+here::i_am("analysis/code/analysis_world_GBMandRF.Rmd")
 library(here)
 library(dplyr)
 library(ggplot2)
@@ -29,7 +29,7 @@ library(reshape)
 library(pdp)
 library(plotly)
 
-source(here::here("analysis/World/code/helper_functions.R"))
+source(here::here("analysis/code/helper_functions.R"))
 
 set.seed(100)
 ```
@@ -41,7 +41,7 @@ set.seed(100)
 #### Preprocessing
 ```{r}
 # load data
-df = read.csv(here::here("analysis/World/data/preprocessed","XY_WHO_trust.csv"))
+df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
 iso = df$iso
 
 # exclude features due to either multicollinearity identified in other scripts, or because of variables' status as just a name/identifier
@@ -83,7 +83,7 @@ Y = (Y / X$Population) * 100000
 X[,'Population'] = log(X[,'Population']+1)
 X[,"People_Per_Sq_Km_of_Land"] = log(X[,"People_Per_Sq_Km_of_Land"]+.01)
 X[,"GDP_Per_Capita"] = log(X[,"GDP_Per_Capita"]+.01)
-X[,"Health_Expenditure_Per_Capita"] = log(X[,"Health_Expenditure_Per_Capita"]+.01)
+
 
 ###########################################
 # Transform and Z-score target variable   #
