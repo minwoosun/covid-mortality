@@ -321,7 +321,7 @@ for (p in 1:N.permute){
     # predictions from gbm
     Y.hat = predict(boost, newdata = X_IM[index.test,])
     
-    cverror[order(as.integer(cverror\$shuffled_index)),][index.test,]\$cverror_IM = Y.hat^3
+    cverror[order(as.integer(cverror$shuffled_index)),][index.test,]$cverror_IM = Y.hat^3
     
     # INTRINSIC CV Error ----------------------------
     
@@ -337,11 +337,11 @@ for (p in 1:N.permute){
     # predictions from gbm
     Y.hat = predict(boost, newdata = X_I[index.test,])
     
-    cverror[order(as.integer(cverror\$shuffled_index)),][index.test,]\$cverror_I = Y.hat^3
+    cverror[order(as.integer(cverror\$shuffled_index)),][index.test,]$cverror_I = Y.hat^3
   }
   
-  rMSE_modif = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror\$shuffled_index)),]\$cverror_IM)^2))
-  rMSE_intrin = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror\$shuffled_index)),]\$cverror_I)^2))
+  rMSE_modif = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror$shuffled_index)),]$cverror_IM)^2))
+  rMSE_intrin = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror$shuffled_index)),]$cverror_I)^2))
   
   
   

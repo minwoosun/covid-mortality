@@ -390,6 +390,10 @@ FinalShrinkage<-boost[["bestTune"]][3]
 Finalminobs<-boost[["bestTune"]][4]
 FinalInteractionDepth<-2 #let's choose depth of 2 just for interpretability (since 3 and 4 didn't improve things much. This is a fairly arbitrary choice, however, and can change)
 
+
+
+
+
 #obtain individual predictions we want
 finalSubset<-subset(allPreds,n.trees==as.numeric(FinalNumTrees) & shrinkage==as.numeric(FinalShrinkage) & interaction.depth==FinalInteractionDepth &n.minobsinnode==as.numeric(Finalminobs))
 
@@ -490,6 +494,19 @@ ggplot(varImportance, aes(x=reorder(varnames, Overall), y=Overall,color=as.facto
 scale_shape_manual(name = "A", values=c(Y_A = 0, Y_A_obs = 15), 
                      labels=c(Y_A = "y_true", Y_A_obs = "y_pred"), 
                      guide = guide_legend(order = 1))
+
+
+
+
+# output parameters
+gbm.final.params = list(FinalNumTrees, 
+                        FinalShrinkage, 
+                        Finalminobs, 
+                        data.frame(shrinkage=FinalInteractionDepth),
+                        )
+
+path_output = here::here("analysis/data/preprocessed/")
+save(gbm.final.params, file=paste0(path_output ,"gbm_final_params.RData"))
 ```
 
 #### Partial Dependency Plots as in Paper
