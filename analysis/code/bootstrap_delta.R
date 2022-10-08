@@ -20,10 +20,6 @@ index.exclude = which(names(df) %in% c("iso",
                                        "Ages_15_To_64_Percent",
                                        "V1",
                                        "Sub.region.Name"
-                                       ## percent air pollution !! #
-                                       #,
-                                       # "Trust_In_Govt
-                                       #  "Region.Name",
 ))
 
 # convert region variables into factor
@@ -152,12 +148,12 @@ index.modifiable = c(index.static,
 
 best_params_intrinsic =  data.frame(interaction.depth = 2,
                                     n.trees = 1600,
-                                    shrinkage = .01,
+                                    shrinkage = .007,
                                     n.minobsinnode = 10)
 
 best_params_modifiable = data.frame(interaction.depth = 2,
                                     n.trees = 1600,
-                                    shrinkage = .01,
+                                    shrinkage = .007,
                                     n.minobsinnode = 7)
 
 
@@ -315,7 +311,7 @@ for (b in 1:N.bootstrap){
     df_ = cbind(iso=as.character(preds.iso), 
                 pred.I=as.numeric(preds.intrinsic^3), 
                 pred.IM=as.numeric(preds.modifiable^3), 
-                delta = as.numeric(preds.modifiable^3 - preds.intrinsic^3),
+                delta = as.numeric(preds.modifiable^3-preds.intrinsic^3),
                 bootstrap = as.integer(rep(b, length(preds.iso)))
                 ) %>% data.frame
     
@@ -382,44 +378,39 @@ ggplot(df.final, aes(avg, iso)) +
 # predictions. delta < 0 means it led to smaller mortality predictions
 
 
-# need to also assess how much closer we got to the actual prediction as a a result of modifiable
-# plot the actual pred value and the intervals. 
-df.preds = cbind(iso=iso,
-            pred.I= df.yhatinitial$intrinsic^3, 
-            pred.IM = df.yhatinitial$intrinsic_and_modifiable^3,
-            observed = Y^3) %>% data.frame
-df.preds$pred.I = as.numeric(df.preds$pred.I)
-df.preds$pred.IM = as.numeric(df.preds$pred.IM)
-df.preds$observed = as.numeric(df.preds$observed)
-df.preds$res_I = abs(df.preds$observed - df.preds$pred.I)
-df.preds$res_IM = abs(df.preds$observed - df.preds$pred.IM)
-df.preds$res_diff = df.preds$res_I - df.preds$res_IM 
+# # need to also assess how much closer we got to the actual prediction as a a result of modifiable
+# # plot the actual pred value and the intervals. 
+# df.preds = cbind(iso=iso,
+#             pred.I= df.yhatinitial$intrinsic^3, 
+#             pred.IM = df.yhatinitial$intrinsic_and_modifiable^3,
+#             observed = Y^3) %>% data.frame
+# df.preds$pred.I = as.numeric(df.preds$pred.I)
+# df.preds$pred.IM = as.numeric(df.preds$pred.IM)
+# df.preds$observed = as.numeric(df.preds$observed)
+# df.preds$res_I = abs(df.preds$observed - df.preds$pred.I)
+# df.preds$res_IM = abs(df.preds$observed - df.preds$pred.IM)
+# df.preds$res_diff = df.preds$res_I - df.preds$res_IM 
+# 
+# rmse.IM = sqrt(mean((df.preds$observed - df.preds$pred.IM)^2))
+# rmse.I = sqrt(mean((df.preds$observed - df.preds$pred.I)^2))
+# rmse.IM
+# rmse.I
 
-rmse.IM = sqrt(mean((df.preds$observed - df.preds$pred.IM)^2))
-rmse.I = sqrt(mean((df.preds$observed - df.preds$pred.I)^2))
-rmse.IM
-rmse.I
-
-
-
-
-
-
-# plot specific countries
-country.filter = c("USA", "CAN", "MEX", "KOR", "ITA", "GBR", "FRA")
-df.preds_ = df.preds[df.preds$iso %in% country.filter,]
-ggplot(df.preds_, aes(res_diff, iso)) +   
-  geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
-  geom_point() +
- # geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
-  xlab("residual diff") +
-  theme_minimal()
-
-# plot all
-ggplot(df.preds, aes(res_diff, iso)) +    
-  geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
-  geom_point() +
-  # geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
-  xlab("residual diff") +
-  theme_minimal() + 
-  theme(axis.text.y=element_blank())
+# # plot specific countries
+# country.filter = c("USA", "CAN", "MEX", "KOR", "ITA", "GBR", "FRA")
+# df.preds_ = df.preds[df.preds$iso %in% country.filter,]
+# ggplot(df.preds_, aes(res_diff, iso)) +   
+#   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
+#   geom_point() +
+#  # geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
+#   xlab("residual diff") +
+#   theme_minimal()
+# 
+# # plot all
+# ggplot(df.preds, aes(res_diff, iso)) +    
+#   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
+#   geom_point() +
+#   # geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
+#   xlab("residual diff") +
+#   theme_minimal() + 
+#   theme(axis.text.y=element_blank())
