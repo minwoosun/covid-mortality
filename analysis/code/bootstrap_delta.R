@@ -14,6 +14,7 @@ set.seed(100)
 df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
 iso = df$iso
 
+
 # exclude features
 index.exclude = which(names(df) %in% c("iso",
                                        "Days_Until_All_Vulnerable_Vacc_Elig",
@@ -198,6 +199,8 @@ df = data.frame(iso=character(),
                 stringsAsFactors=FALSE
 )
 
+
+
 # one iteration of k-fold CV
 # randomly shuffle data X and Y
 # ---------------------
@@ -355,62 +358,59 @@ df.final$ci_hi = df.final$avg + (1.96 * df.final$se / sqrt(N.bootstrap.final))
 # Plot confidence intervals for delta #
 #######################################
 
-# plot specific countries
-country.filter = c("USA", "CAN", "MEX", "KOR", "ITA", "GBR", "FRA")
+
+country.filter = c("NOR", "KOR", "CAN", "AUS", "MYS", "USA", "IND", "RUS", "PER", "SVK")
+
 df.final_ = df.final[df.final$iso %in% country.filter,]
-ggplot(df.final_, aes(avg, iso)) +   
+df.final_ = df.final_[order(df.final_$avg),] 
+row.names(df.final_) = 1:nrow(df.final_)
+
+ggplot(df.final_, aes(x=avg, y=reorder(iso,avg))) +   
   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
   geom_point() +
   geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
-  xlab("delta") +
+  xlab("Delta") +
+  ylab("Country ISO") +
   theme_minimal()
 
 # plot all
-ggplot(df.final, aes(avg, iso)) +    
+ggplot(df.final, aes(x=avg, y=reorder(iso,avg))) +    
   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
   geom_point() +
   geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
-  xlab("delta") +
+  xlab("Delta") +
+  ylab("Country") +
   theme_minimal() + 
   theme(axis.text.y=element_blank())
 
-# once we account for modifiable variables, delta>0 means it led to higher mortality
-# predictions. delta < 0 means it led to smaller mortality predictions
 
 
-# # need to also assess how much closer we got to the actual prediction as a a result of modifiable
-# # plot the actual pred value and the intervals. 
-# df.preds = cbind(iso=iso,
-#             pred.I= df.yhatinitial$intrinsic^3, 
-#             pred.IM = df.yhatinitial$intrinsic_and_modifiable^3,
-#             observed = Y^3) %>% data.frame
-# df.preds$pred.I = as.numeric(df.preds$pred.I)
-# df.preds$pred.IM = as.numeric(df.preds$pred.IM)
-# df.preds$observed = as.numeric(df.preds$observed)
-# df.preds$res_I = abs(df.preds$observed - df.preds$pred.I)
-# df.preds$res_IM = abs(df.preds$observed - df.preds$pred.IM)
-# df.preds$res_diff = df.preds$res_I - df.preds$res_IM 
-# 
-# rmse.IM = sqrt(mean((df.preds$observed - df.preds$pred.IM)^2))
-# rmse.I = sqrt(mean((df.preds$observed - df.preds$pred.I)^2))
-# rmse.IM
-# rmse.I
 
-# # plot specific countries
-# country.filter = c("USA", "CAN", "MEX", "KOR", "ITA", "GBR", "FRA")
-# df.preds_ = df.preds[df.preds$iso %in% country.filter,]
-# ggplot(df.preds_, aes(res_diff, iso)) +   
-#   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
-#   geom_point() +
-#  # geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
-#   xlab("residual diff") +
-#   theme_minimal()
-# 
-# # plot all
-# ggplot(df.preds, aes(res_diff, iso)) +    
-#   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
-#   geom_point() +
-#   # geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
-#   xlab("residual diff") +
-#   theme_minimal() + 
-#   theme(axis.text.y=element_blank())
+
+
+
+###################################
+# RMSE comparison: I vs IA models #
+###################################
+
+df_ = merge(df, cbind(iso, as.numeric(Y)^3), by="iso")
+colnames(df_)[6] = "Y"
+df_$pred.I = df_$pred.I %>% as.numeric
+df_$pred.IM = df_$pred.IM %>% as.numeric
+df_$Y = df_$Y %>% as.numeric
+
+df_ = df_ %>% mutate(sqerror_I = sqrt((Y-pred.I)^2))
+df_ = df_ %>% mutate(sqerror_IM = sqrt((Y-pred.IM)^2))
+
+df_RMSE_I = df_ %>% group_by(iso) %>% dplyr::summarize(RMSE_I = mean(sqerror_I, na.rm=TRUE))
+df_RMSE_IM = df_ %>% group_by(iso) %>% dplyr::summarize(RMSE_M = mean(sqerror_IM, na.rm=TRUE))
+
+df_RMSE = merge(df_RMSE_I, df_RMSE_IM, by="iso")
+df_RMSE = df_RMSE %>% mutate(improve = df_RMSE$RMSE_I > df_RMSE$RMSE_M)
+
+# filter for countries where adding modifiable variables decreased the error
+df_RMSE[df_RMSE$improve,] 
+
+df_final = merge(df_RMSE, df.delta, by="iso")
+df_final[df_final$improve,]
+
