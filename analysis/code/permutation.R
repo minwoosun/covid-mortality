@@ -1,4 +1,4 @@
-here::i_am("analysis/World/code/permutation/permutation.R")
+here::i_am("analysis/code/permutation.R")
 
 start.time <- Sys.time()
 library(dplyr)
@@ -7,14 +7,13 @@ library(glmnet)
 library(caret)
 library(gbm)
 
-outdir = "/scratch/users/minwoos/covid-mortality/"
-
-source("/scratch/users/minwoos/repos/covid_mortality/analysis/World/code/helper_functions.R")
+outdir = here::here("analysis/data/")
+source(here::here("analysis/code/helper_functions.R"))
 
 set.seed(100)
 
 # load data
-df = read.csv("/scratch/users/minwoos/repos/covid_mortality/analysis/World/data/preprocessed/XY_WHO_trust.csv")
+df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
 iso = df$iso
 
 # exclude features
@@ -278,14 +277,14 @@ for (p in 1:N.permute){
   
   X_IM = cbind(X_[,index.IM], Y=Y, iso=iso)
   X_IM = X_IM[order(shuffled_index),]
-  Y_ = X_IM\$Y
-  iso_ = X_IM\$iso
+  Y_ = X_IM$Y
+  iso_ = X_IM$iso
   X_IM = X_IM %>% select(-iso)
   
   X_I = cbind(X_[,index.I], Y=Y, iso=iso)
   X_I = X_I[order(shuffled_index),]
-  Y_ = X_I\$Y
-  iso_ = X_I\$iso
+  Y_ = X_I$Y
+  iso_ = X_I$iso
   X_I = X_I %>% select(-iso)
   
   iso.shuffled = data.frame(cbind(iso, shuffled_index ))
@@ -337,7 +336,7 @@ for (p in 1:N.permute){
     # predictions from gbm
     Y.hat = predict(boost, newdata = X_I[index.test,])
     
-    cverror[order(as.integer(cverror\$shuffled_index)),][index.test,]$cverror_I = Y.hat^3
+    cverror[order(as.integer(cverror$shuffled_index)),][index.test,]$cverror_I = Y.hat^3
   }
   
   rMSE_modif = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror$shuffled_index)),]$cverror_IM)^2))

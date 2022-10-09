@@ -1,4 +1,4 @@
-here::i_am("analysis/code/permutation/permutation_plot.R")
+here::i_am("analysis/code/permutation_plot.R")
 
 library(here)
 library(ggplot2)
