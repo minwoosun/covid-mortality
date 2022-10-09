@@ -414,3 +414,16 @@ df_RMSE[df_RMSE$improve,]
 df_final = merge(df_RMSE, df.delta, by="iso")
 df_final[df_final$improve,]
 
+# # Get vaccine and trust valeus for 10 countries
+# df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
+# country.filter = c("NOR", "KOR", "CAN", "AUS", "MYS", "USA", "IND", "RUS", "PER", "SVK")
+# df.filtered = df[df$iso %in% country.filter,] 
+# 
+# df.filtered %>% select(iso, 
+#                        Percent_One_Dose_As_Of_Nov_1, 
+#                        Trust_Covid_Advice_Govt)
+# 
+# 
+# cor(df.filtered$Percent_One_Dose_As_Of_Nov_1, df.filtered$Trust_Covid_Advice_Govt)
+
+
