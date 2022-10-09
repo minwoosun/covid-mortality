@@ -7,7 +7,7 @@ library(glmnet)
 library(caret)
 library(gbm)
 
-outdir = here::here("analysis/data/")
+outdir = here::here("analysis/data/preprocessed")
 source(here::here("analysis/code/helper_functions.R"))
 
 set.seed(100)
