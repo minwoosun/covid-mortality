@@ -6,7 +6,6 @@ output: html_document
 #Date edited: 9/15/22
 ---
 
-
 Summary
 - Read-in data from pre-processing script. Do a few other small pre-processing steps
 
@@ -33,9 +32,6 @@ source(here::here("analysis/code/helper_functions.R"))
 
 set.seed(100)
 ```
-
-
-
 
 
 #### Preprocessing
@@ -91,10 +87,6 @@ X[,"GDP_Per_Capita"] = log(X[,"GDP_Per_Capita"]+.01)
 # apply none (0) log (1) or cube root (2) transform then scale target
 Y = cube_root(Y)
 
-```
-
-
-```{r}
 
 # one-hot encode region / sub-region variables
 ##############
@@ -111,29 +103,7 @@ X.dummy <- data.frame(predict(dummy, newdata=X))
 X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
 
 X = X.dummy
-
-
-##############
-# sub-region #
-##############
-
-# #define one-hot encoding function
-# dummy <- dummyVars(" ~ .", data=X)
-# 
-# #perform one-hot encoding on data frame
-# X.dummy <- data.frame(predict(dummy, newdata=X))
-# 
-# # # drop columns with 0 variance -> just Oceania
-# # X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
-# 
-# index.sub <- grep("Sub", names(X.dummy), fixed=TRUE)
-# names.sub.region <- names(X.dummy)[index.sub]
-# 
-# #apply(X.dummy, MARGIN=2, FUN=var)
-# 
-# X = X.dummy
 ```
-
 
 
 ```{r}
@@ -191,21 +161,6 @@ index.trust = which(names(X) %in% c( "Trust_Covid_Advice_Govt"))
 
 
 ```{r}
-# get indices for countries of interest
-index.USA = which(iso == "USA")
-index.CAN = which(iso == "CAN")
-
-index.KOR = which(iso == "KOR")
-index.DEU = which(iso == "DEU")
-index.MEX = which(iso == "MEX")
-index.MMR = which(iso == "MMR")
-
-index.ITA = which(iso == "ITA")
-index.FRA = which(iso == "FRA")
-index.GBR = which(iso == "GBR")
-```
-
-```{r}
 # Create Function to display Correlation Matrix
 displayCorrMat<-function(numericTrustMetrics){
 cormat1 <- round(x = cor(numericTrustMetrics), digits = 1)
@@ -225,9 +180,7 @@ melted_cormat1 <- melt(cormat1,as.is = TRUE)
 ```
 
 
-######################
-#### Random Forest
-######################
+## Random Forest
 ```{r}
 
 
@@ -295,58 +248,9 @@ actual_untrsf <-  actual^3
 #look at overall RMSE and correlation btwn predictions and true values
 compute_rMSE(preds_untrsf, actual_untrsf)
 cor(preds_untrsf, actual_untrsf, method="spearman")
-
-#investigate individual countries
-
-#get predictions where row index was
-USpreds<-finalSubset[finalSubset$rowIndex == index.USA,1]
-Canadapreds<-finalSubset[finalSubset$rowIndex == index.CAN,1]
-Koreapreds <- finalSubset[finalSubset$rowIndex == index.KOR,1] 
-Mexicopreds <- finalSubset[finalSubset$rowIndex == index.MEX,1] 
-Germanypreds <- finalSubset[finalSubset$rowIndex == index.DEU,1] 
-Myanmarpreds <- finalSubset[finalSubset$rowIndex == index.MMR,1] 
-
-#get these predictions on original scale
-us_preds_untrsf <-  USpreds^3
-can_preds_untrsf <- Canadapreds^3
-kor_preds_untrsf <- Koreapreds^3
-
-deu_preds_untrsf <- Germanypreds^3
-mex_preds_untrsf <- Mexicopreds^3
-mmr_preds_untrsf <- Myanmarpreds^3
-
-#get actual values
-us_actual<-Y[index.USA]^3
-canada_actual<-Y[index.CAN]^3
-korea_actual<-Y[index.KOR]^3
-germany_actual<-Y[index.DEU]^3
-mexico_actual<-Y[index.MEX]^3
-myanmar_actual<-Y[index.MMR]^3
-
-
-#investigate
-paste0("USA observed: ",us_actual)
-paste0("USA predicted: ", mean(us_preds_untrsf))
-
-paste0("CAN observed: ",canada_actual)
-paste0("CAN predicted: ", mean(can_preds_untrsf))
-
-paste0("KOR observed: ", korea_actual)
-paste0("KOR predicted: ", mean(kor_preds_untrsf))
-
-paste0("DEU observed: ", germany_actual)
-paste0("DEU predicted: ", mean(deu_preds_untrsf))
-
-paste0("MEX observed: ", mexico_actual)
-paste0("MEX predicted: ", mean(mex_preds_untrsf))
-
-paste0("MMR observed: ", myanmar_actual)
-paste0("MMR predicted: ", mean(mmr_preds_untrsf))
 ```
 
-#####################
-# Gradient Boosting 
-#####################
+## Gradient Boosting 
 ```{r}
 
 set.seed(100)
@@ -391,9 +295,6 @@ Finalminobs<-boost[["bestTune"]][4]
 FinalInteractionDepth<-2 #let's choose depth of 2 just for interpretability (since 3 and 4 didn't improve things much. This is a fairly arbitrary choice, however, and can change)
 
 
-
-
-
 #obtain individual predictions we want
 finalSubset<-subset(allPreds,n.trees==as.numeric(FinalNumTrees) & shrinkage==as.numeric(FinalShrinkage) & interaction.depth==FinalInteractionDepth &n.minobsinnode==as.numeric(Finalminobs))
 
@@ -422,55 +323,6 @@ compute_rMSE(preds_untrsf, actual_untrsf)
 cor(preds_untrsf, actual_untrsf, method="spearman")
 
 
-#investigate individual countries
-
-#get predictions where row index was
-USpreds<-finalSubset[finalSubset$rowIndex == index.USA,1]
-Canadapreds<-finalSubset[finalSubset$rowIndex == index.CAN,1]
-Koreapreds <- finalSubset[finalSubset$rowIndex == index.KOR,1] 
-Mexicopreds <- finalSubset[finalSubset$rowIndex == index.MEX,1] 
-Germanypreds <- finalSubset[finalSubset$rowIndex == index.DEU,1] 
-Myanmarpreds <- finalSubset[finalSubset$rowIndex == index.MMR,1] 
-
-#get these predictions on original scale
-us_preds_untrsf <-  USpreds^3
-can_preds_untrsf <- Canadapreds^3
-kor_preds_untrsf <- Koreapreds^3
-
-deu_preds_untrsf <- Germanypreds^3
-mex_preds_untrsf <- Mexicopreds^3
-mmr_preds_untrsf <- Myanmarpreds^3
-# us_preds_untrsf <-  USpreds
-# can_preds_untrsf <- Canadapreds
-
-#get actual US and Canada values
-us_actual<-Y[index.USA]^3
-canada_actual<-Y[index.CAN]^3
-korea_actual<-Y[index.KOR]^3
-germany_actual<-Y[index.DEU]^3
-mexico_actual<-Y[index.MEX]^3
-myanmar_actual<-Y[index.MMR]^3
-
-
-#investigate
-paste0("USA observed: ",us_actual)
-paste0("USA predicted: ", mean(us_preds_untrsf))
-
-paste0("CAN observed: ",canada_actual)
-paste0("CAN predicted: ", mean(can_preds_untrsf))
-
-paste0("KOR observed: ", korea_actual)
-paste0("KOR predicted: ", mean(kor_preds_untrsf))
-
-paste0("DEU observed: ", germany_actual)
-paste0("DEU predicted: ", mean(deu_preds_untrsf))
-
-paste0("MEX observed: ", mexico_actual)
-paste0("MEX predicted: ", mean(mex_preds_untrsf))
-
-paste0("MMR observed: ", myanmar_actual)
-paste0("MMR predicted: ", mean(mmr_preds_untrsf))
-
 # Make same variable importance plot as in paper
 # use importance found throughout process
 varImportance<-varImp(boost)
@@ -495,9 +347,6 @@ scale_shape_manual(name = "A", values=c(Y_A = 0, Y_A_obs = 15),
                      labels=c(Y_A = "y_true", Y_A_obs = "y_pred"), 
                      guide = guide_legend(order = 1))
 
-
-
-
 # output parameters
 gbm.final.params = list(FinalNumTrees, 
                         FinalShrinkage, 
@@ -509,7 +358,8 @@ path_output = here::here("analysis/data/preprocessed/")
 save(gbm.final.params, file=paste0(path_output ,"gbm_final_params.RData"))
 ```
 
-#### Partial Dependency Plots as in Paper
+
+## Partial Dependency Plots as in Paper
 ```{r}
 par(mfrow=c(2,2))
 
@@ -563,4 +413,3 @@ p3 <- p3 %>% layout(scene = list(xaxis = list(title = "% Trust Govt COVID Advice
                              zaxis = list(title = "Partial Dependence")))
 show(p3)
 ```
-

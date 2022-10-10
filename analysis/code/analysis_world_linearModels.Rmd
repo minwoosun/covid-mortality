@@ -7,11 +7,6 @@ output: html_document
 ---
 
 
-Summary
-- Fit OLS on static + modifiable features + grouped policies. Any combo of these types of features can be tested
-
-- Fit LASSO on static + modifiable features + grouped policies. Any combo of these types of features can be tested
-
 ```{r}
 here::i_am("analysis/code/analysis_world_WHO_trust_10M_linear.Rmd")
 library(here)
@@ -29,9 +24,6 @@ source(here::here("analysis/code/helper_functions.R"))
 
 set.seed(100)
 ```
-
-
-
 
 
 #### Preprocessing
@@ -86,10 +78,10 @@ X[,"Health_Expenditure_Per_Capita"] = log(X[,"Health_Expenditure_Per_Capita"]+.0
 # apply none (0) log (1) or cube root (2) transform then scale target
 Y = cube_root(Y)
 
-```
+###########
+# scaling #
+###########
 
-
-```{r}
 # scale for linear models
 index.reg <- which(names(X) == "Region.Name")
 
@@ -99,10 +91,7 @@ X.scaled = X
 # 
 # # scaling
 X.scaled[,-index.reg] = scale(X[,-index.reg], scale=TRUE)
-```
 
-
-```{r}
 # one-hot encode region / sub-region variables
 ##############
 # continents #
@@ -118,28 +107,6 @@ X.dummy <- data.frame(predict(dummy, newdata=X))
 X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
 
 X = X.dummy
-
-
-##############
-# sub-region #
-##############
-
-# #define one-hot encoding function
-# dummy <- dummyVars(" ~ .", data=X)
-# 
-# #perform one-hot encoding on data frame
-# X.dummy <- data.frame(predict(dummy, newdata=X))
-# 
-# # # drop columns with 0 variance -> just Oceania
-# # X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
-# 
-# index.sub <- grep("Sub", names(X.dummy), fixed=TRUE)
-# names.sub.region <- names(X.dummy)[index.sub]
-# 
-# #apply(X.dummy, MARGIN=2, FUN=var)
-# 
-# X = X.dummy
-
 ```
 
 
@@ -197,21 +164,6 @@ index.trust = which(names(X) %in% c( "Trust_Covid_Advice_Govt"))
 
 
 ```{r}
-# get indices for countries of interest
-index.USA = which(iso == "USA")
-index.CAN = which(iso == "CAN")
-
-index.KOR = which(iso == "KOR")
-index.DEU = which(iso == "DEU")
-index.MEX = which(iso == "MEX")
-index.MMR = which(iso == "MMR")
-
-index.ITA = which(iso == "ITA")
-index.FRA = which(iso == "FRA")
-index.GBR = which(iso == "GBR")
-```
-
-```{r}
 # Create Function to display Correlation Matrix
 displayCorrMat<-function(numericTrustMetrics){
 cormat1 <- round(x = cor(numericTrustMetrics), digits = 1)
@@ -231,10 +183,7 @@ melted_cormat1 <- melt(cormat1,as.is = TRUE)
 ```
 
 
-#################
-###  OLS        #
-#################
-
+## OLS        
 ```{r}
 set.seed(1)
 
@@ -273,72 +222,11 @@ finalSubset<-fit$pred
 
 #investigate individual countries
 
-#get predictions where row index was
-USpreds<-finalSubset[finalSubset$rowIndex == index.USA,1]
-Canadapreds<-finalSubset[finalSubset$rowIndex == index.CAN,1]
-Koreapreds <- finalSubset[finalSubset$rowIndex == index.KOR,1]
-Mexicopreds <- finalSubset[finalSubset$rowIndex == index.MEX,1]
-Germanypreds <- finalSubset[finalSubset$rowIndex == index.DEU,1]
-Myanmarpreds <- finalSubset[finalSubset$rowIndex == index.MMR,1]
-Italypreds <- finalSubset[finalSubset$rowIndex == index.ITA,1]
-Francepreds <- finalSubset[finalSubset$rowIndex == index.FRA,1]
-Britainpreds <- finalSubset[finalSubset$rowIndex == index.GBR,1]
-
-#get these predictions on original scale
-us_preds_untrsf <-  USpreds^3
-can_preds_untrsf <- Canadapreds^3
-kor_preds_untrsf <- Koreapreds^3
-deu_preds_untrsf <- Germanypreds^3
-mex_preds_untrsf <- Mexicopreds^3
-mmr_preds_untrsf <- Myanmarpreds^3
-ita_preds_untrsf <- Italypreds^3
-fra_preds_untrsf <- Francepreds^3
-gbr_preds_untrsf <- Britainpreds^3
-
-#get actual US and Canada values
-us_actual<-Y[index.USA]^3
-canada_actual<-Y[index.CAN]^3
-korea_actual<-Y[index.KOR]^3
-germany_actual<-Y[index.DEU]^3
-mexico_actual<-Y[index.MEX]^3
-myanmar_actual<-Y[index.MMR]^3
-italy_actual <- Y[index.ITA]^3
-france_actual <- Y[index.FRA]^3
-britain_actual <- Y[index.GBR]^3
-
-
-#investigate
-paste0("USA observed: ",us_actual)
-paste0("USA predicted: ", mean(us_preds_untrsf))
-
-paste0("CAN observed: ",canada_actual)
-paste0("CAN predicted: ", mean(can_preds_untrsf))
-
-paste0("KOR observed: ", korea_actual)
-paste0("KOR predicted: ", mean(kor_preds_untrsf))
-
-paste0("DEU observed: ", germany_actual)
-paste0("DEU predicted: ", mean(deu_preds_untrsf))
-
-paste0("MEX observed: ", mexico_actual)
-paste0("MEX predicted: ", mean(mex_preds_untrsf))
-
-paste0("MMR observed: ", myanmar_actual)
-paste0("MMR predicted: ", mean(mmr_preds_untrsf))
-
-paste0("ITA observed: ", italy_actual)
-paste0("ITA predicted: ", mean(ita_preds_untrsf))
-
-paste0("FRA observed: ", france_actual)
-paste0("FRA predicted: ", mean(fra_preds_untrsf))
-
-paste0("GBR observed: ", britain_actual)
-paste0("GBR predicted: ", mean(gbr_preds_untrsf))
 ```
 
-#################
-###     LASSO   #
-#################
+
+
+## LASSO   
 ```{r}
 set.seed(1)
 
@@ -410,44 +298,5 @@ boxplot(allRMSELasso)
 #     cex = 1.75)
 
 
-#investigate individual countries
-USpreds<-finalSubset[finalSubset$rowIndex == index.USA,1]
-Canadapreds<-finalSubset[finalSubset$rowIndex == index.CAN,1]
-Koreapreds <- finalSubset[finalSubset$rowIndex == index.KOR,1]
-Mexicopreds <- finalSubset[finalSubset$rowIndex == index.MEX,1]
-Germanypreds <- finalSubset[finalSubset$rowIndex == index.DEU,1]
-Myanmarpreds <- finalSubset[finalSubset$rowIndex == index.MMR,1]
-Italypreds <- finalSubset[finalSubset$rowIndex == index.ITA,1]
-Francepreds <- finalSubset[finalSubset$rowIndex == index.FRA,1]
-Britainpreds <- finalSubset[finalSubset$rowIndex == index.GBR,1]
 
-#get these predictions on original scale
-us_preds_untrsf <-  USpreds^3
-can_preds_untrsf <- Canadapreds^3
-kor_preds_untrsf <- Koreapreds^3
-deu_preds_untrsf <- Germanypreds^3
-mex_preds_untrsf <- Mexicopreds^3
-mmr_preds_untrsf <- Myanmarpreds^3
-ita_preds_untrsf <- Italypreds^3
-fra_preds_untrsf <- Francepreds^3
-gbr_preds_untrsf <- Britainpreds^3
-
-#get actual US and Canada values
-us_actual<-Y[index.USA]^3
-canada_actual<-Y[index.CAN]^3
-korea_actual<-Y[index.KOR]^3
-germany_actual<-Y[index.DEU]^3
-mexico_actual<-Y[index.MEX]^3
-myanmar_actual<-Y[index.MMR]^3
-italy_actual <- Y[index.ITA]^3
-france_actual <- Y[index.FRA]^3
-britain_actual <- Y[index.GBR]^3
-
-
-#investigate
-paste0("USA observed: ",us_actual)
-paste0("USA predicted: ", mean(us_preds_untrsf))
-
-paste0("CAN observed: ",canada_actual)
-paste0("CAN predicted: ", mean(can_preds_untrsf))
 ```

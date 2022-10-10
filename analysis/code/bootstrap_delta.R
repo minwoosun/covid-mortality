@@ -28,7 +28,6 @@ df$Region.Name <- as.factor(df$Region.Name)
 df$Sub.region.Name <- as.factor(df$Sub.region.Name)
 
 
-
 #filter for 10M instead of 1M population
 N = 5000000
 iso=iso[df$Population>N]
@@ -38,9 +37,6 @@ df = df[df$Population>N,-index.exclude]
 # Convert Y into crude rate from count 
 X = df %>% select(-excess_death)
 Y = (Y / X$Population) * 100000
-
-
-
 
 
 ###########################################
@@ -55,18 +51,12 @@ X[,"GDP_Per_Capita"] = log(X[,"GDP_Per_Capita"]+.01)
 X[,"Health_Expenditure_Per_Capita"] = log(X[,"Health_Expenditure_Per_Capita"]+.01)
 
 
-
-
-
 ###########################################
 # Transform and Z-score target variable   #
 ###########################################
 
 # apply none (0) log (1) or cube root (2) transform then scale target
 Y = cube_root(Y)
-
-
-
 
 ##############
 # continents #
@@ -82,7 +72,6 @@ X.dummy <- data.frame(predict(dummy, newdata=X))
 X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
 
 X = X.dummy
-
 
 
 ##########################################
@@ -123,8 +112,6 @@ index.region = which(names(X) %in% c("Region.Name.Africa",
 index.trust = which(names(X) %in% c( "Trust_Covid_Advice_Govt"))
 
 
-
-
 #######################################
 # Fit initial GBM // best hyperparams #
 #######################################
@@ -139,14 +126,6 @@ index.modifiable = c(index.static,
                         index.modifiable,
                         index.policy.grouped)
 
-
-# # latest model predictions and hyperparam
-# df.yhatinitial <- read.csv(here::here("analysis/data/yhatinitial.csv"))
-# Y.hat.initial.intrin = df.yhatinitial$intrinsic
-# Y.hat.initial.modif = df.yhatinitial$intrinsic_and_modifiable
-# delta.initial = Y.hat.initial.modif^3 - Y.hat.initial.intrin^3 
-# df.delta.initial = data.frame(cbind(iso=iso, delta=delta.initial))
-
 best_params_intrinsic =  data.frame(interaction.depth = 2,
                                     n.trees = 1600,
                                     shrinkage = .007,
@@ -156,9 +135,6 @@ best_params_modifiable = data.frame(interaction.depth = 2,
                                     n.trees = 1600,
                                     shrinkage = .007,
                                     n.minobsinnode = 7)
-
-
-
 
 ###################
 # Bootstrap index #
@@ -177,29 +153,14 @@ for (i in 1:N.bootstrap){
 # repeated CV procedure for each bootstrapped X # 
 #################################################
 
-# N.repeatedCV = 100
 k = 10 # k-fold CV
-
-
-# delta_full = matrix(NA, nrow=k*n.repeatedCV*B, ncol=N.country)
-# delta_bootstrap = matrix(NA, nrow=B, ncol=N.country)
-# rMSE
-# average fold size
-
-# list.I = list() # pred intrinsic, i-th index = i-th country 10CV preds 
-# list.IM = list() # pred intrinsic + modifiable, i-th index = i-th country 10CV preds 
-# list.bootstrap = list() # keep track of deltas, i-th index = i-th bootstrap vector of deltas
-
 df = data.frame(iso=character(),
                 pred.I = numeric(),
                 pred.IM = numeric(),
                 delta = numeric(),
                 bootstrap = integer(),
-          #      repeatedCV = integer(),
                 stringsAsFactors=FALSE
 )
-
-
 
 # one iteration of k-fold CV
 # randomly shuffle data X and Y
@@ -324,8 +285,6 @@ for (b in 1:N.bootstrap){
 }
 
 
-
-
 df.count = df %>% group_by(iso) %>% dplyr::summarize(count=n())
 all(df.count$count  >= N.bootstrap.final) # check that there's enough per country
 
@@ -357,8 +316,6 @@ df.final$ci_hi = df.final$avg + (1.96 * df.final$se / sqrt(N.bootstrap.final))
 #######################################
 # Plot confidence intervals for delta #
 #######################################
-
-
 country.filter = c("NOR", "KOR", "CAN", "AUS", "MYS", "USA", "IND", "RUS", "PER", "SVK")
 
 df.final_ = df.final[df.final$iso %in% country.filter,]
@@ -382,11 +339,6 @@ ggplot(df.final, aes(x=avg, y=reorder(iso,avg))) +
   ylab("Country") +
   theme_minimal() + 
   theme(axis.text.y=element_blank())
-
-
-
-
-
 
 
 ###################################

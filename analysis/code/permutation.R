@@ -41,9 +41,6 @@ X = df %>% select(-excess_death)
 Y = (Y / X$Population) * 100000
 
 
-
-
-
 ###########################################
 # Log transform and scale skewed features #
 ###########################################
@@ -56,18 +53,12 @@ X[,"GDP_Per_Capita"] = log(X[,"GDP_Per_Capita"]+.01)
 X[,"Health_Expenditure_Per_Capita"] = log(X[,"Health_Expenditure_Per_Capita"]+.01)
 
 
-
-
-
 ###########################################
 # Transform and Z-score target variable   #
 ###########################################
 
 # apply none (0) log (1) or cube root (2) transform then scale target
 Y = cube_root(Y)
-
-
-
 
 ##############
 # continents #
@@ -83,7 +74,6 @@ X.dummy <- data.frame(predict(dummy, newdata=X))
 X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
 
 X = X.dummy
-
 
 
 ##########################################
@@ -215,7 +205,6 @@ rMSE_modif = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror$shuffled_index))
 rMSE_intrin = sqrt(mean((Y_^3 - cverror[order(as.integer(cverror$shuffled_index)),]$cverror_I)^2))
 rMSE_delta_observed = rMSE_intrin - rMSE_modif
 paste0("OBSERVED rmse diff: ", rMSE_delta_observed) %>% print()
-#---
 
 
 ################################
@@ -245,9 +234,6 @@ for (i in 1:N.permute){
 
 
 null.dist = c()
-
-
-
 # ---------------------
 for (p in 1:N.permute){
   
@@ -293,11 +279,6 @@ for (p in 1:N.permute){
   cverror = cbind(iso.shuffled, 
                   cverror_IM = rep(NA, nrow(iso.shuffled)),
                   cverror_I = rep(NA, nrow(iso.shuffled)))
-  
-  
-  
-  
-  
   
   for (i in 1:k){
     
@@ -359,11 +340,9 @@ hist(null.dist,
      main="Null distribution of rMSE difference")
 abline(v=rMSE_delta_observed, col="red")
 
-
 result = list()
 result[[1]] = pval
 result[[2]] = rMSE_delta_observed
 result[[3]] = null.dist
-
 
 save(result, file=paste0(outdir,"permutation_test",".RData"))
