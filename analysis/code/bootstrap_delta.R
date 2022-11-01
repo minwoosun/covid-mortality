@@ -366,16 +366,103 @@ df_RMSE[df_RMSE$improve,]
 df_final = merge(df_RMSE, df.delta, by="iso")
 df_final[df_final$improve,]
 
-# # Get vaccine and trust valeus for 10 countries
-# df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
-# country.filter = c("NOR", "KOR", "CAN", "AUS", "MYS", "USA", "IND", "RUS", "PER", "SVK")
-# df.filtered = df[df$iso %in% country.filter,] 
-# 
-# df.filtered %>% select(iso, 
-#                        Percent_One_Dose_As_Of_Nov_1, 
-#                        Trust_Covid_Advice_Govt)
-# 
-# 
-# cor(df.filtered$Percent_One_Dose_As_Of_Nov_1, df.filtered$Trust_Covid_Advice_Govt)
 
+
+
+###############################################
+# Plot delta for countries with improved pred #
+###############################################
+
+country.filter = df_final$iso[df_final$improve == TRUE]
+
+df.final_ = df.final[df.final$iso %in% country.filter,]
+df.final_ = df.final_[order(df.final_$avg),] 
+row.names(df.final_) = 1:nrow(df.final_)
+
+ggplot(df.final_, aes(x=avg, y=reorder(iso,avg))) +   
+  geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
+  geom_point() +
+  geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
+  xlab("Delta") +
+  ylab("Country ISO") +
+  theme_minimal()
+
+
+
+
+##################################
+# Do we get the direction right? #
+##################################
+
+
+df_dir = df_ %>% select(iso, pred.I, pred.IM, Y)
+
+df_dir_avg = df_dir %>% 
+              group_by(iso) %>% 
+              dplyr::summarize(yhat_I = mean(pred.I),
+                               yhat_IM = mean(pred.IM),
+                               y = mean(Y))
+
+correct_dir = c()
+
+for (i in 1:nrow(df_dir_avg)){
+  
+  if ((df_dir_avg$y[i] < df_dir_avg$yhat_I[i]) & (df_dir_avg$yhat_I[i] > df_dir_avg$yhat_IM[i])){
+    correct_dir[i] <- 1
+  } else if ((df_dir_avg$y[i] > df_dir_avg$yhat_I[i]) & (df_dir_avg$yhat_I[i] < df_dir_avg$yhat_IM[i])){
+    correct_dir[i] <- 1
+  }
+  else {
+    correct_dir[i] <- 0
+  }
+}
+
+df_final_dir <- data.frame(cbind(df_dir_avg, correct_dir))
+
+df_final2 = merge(df_final, df_final_dir)
+
+# df_final_dir$iso[df_final_dir$correct_dir==1]
+
+
+country.filter = df_final2$iso[df_final2$correct_dir == 1]
+
+df.final_ = df.final[df.final$iso %in% country.filter,]
+df.final_ = df.final_[order(df.final_$avg),]
+row.names(df.final_) = 1:nrow(df.final_)
+
+ggplot(df.final_, aes(x=avg, y=reorder(iso,avg))) +
+  geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
+  geom_point() +
+  geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
+  xlab("Delta") +
+  ylab("Country ISO") +
+  theme_minimal()
+
+
+
+
+
+
+
+# Get vaccine and trust valeus for 10 countries
+df_ = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
+df.filtered = df_[df_$iso %in% country.filter,]
+
+df.final_sorted = df.final_ %>% select(iso, avg)
+
+df.filtered = df.filtered %>% select(iso,
+                                       Percent_One_Dose_As_Of_Nov_1,
+                                       Trust_Covid_Advice_Govt)
+
+df_table = merge(df.final_sorted, df.filtered)
+
+
+df_table = df_table[order(df_table$avg, decreasing=T),]
+df_table$group = ifelse(df_table$avg > 0, "more", "less")
+
+df_table %>% group_by(group) %>% summarise(m=mean(Percent_One_Dose_As_Of_Nov_1))
+
+
+# plot histograms comparing countries with delta below and above 0
+ggplot(df_table, aes(Trust_Covid_Advice_Govt, fill = group)) + geom_histogram(alpha = 1, binwidth=0.5)
 
