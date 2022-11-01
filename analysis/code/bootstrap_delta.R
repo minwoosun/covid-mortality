@@ -406,10 +406,9 @@ df_dir_avg = df_dir %>%
 correct_dir = c()
 
 for (i in 1:nrow(df_dir_avg)){
-  
-  if ((df_dir_avg$y[i] < df_dir_avg$yhat_I[i]) & (df_dir_avg$yhat_I[i] > df_dir_avg$yhat_IM[i])){
+  if ((df_dir_avg$yhat_I[i] > df_dir_avg$y[i]) & (df_dir_avg$yhat_I[i] > df_dir_avg$yhat_IM[i])){
     correct_dir[i] <- 1
-  } else if ((df_dir_avg$y[i] > df_dir_avg$yhat_I[i]) & (df_dir_avg$yhat_I[i] < df_dir_avg$yhat_IM[i])){
+  } else if ((df_dir_avg$yhat_I[i] < df_dir_avg$y[i]) & (df_dir_avg$yhat_I[i] < df_dir_avg$yhat_IM[i])){
     correct_dir[i] <- 1
   }
   else {
@@ -445,8 +444,8 @@ ggplot(df.final_, aes(x=avg, y=reorder(iso,avg))) +
 
 
 # Get vaccine and trust valeus for 10 countries
-df_ = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
-df.filtered = df_[df_$iso %in% country.filter,]
+df_xy = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
+df.filtered = df_xy[df_xy$iso %in% country.filter,]
 
 df.final_sorted = df.final_ %>% select(iso, avg)
 
@@ -464,5 +463,5 @@ df_table %>% group_by(group) %>% summarise(m=mean(Percent_One_Dose_As_Of_Nov_1))
 
 
 # plot histograms comparing countries with delta below and above 0
-ggplot(df_table, aes(Trust_Covid_Advice_Govt, fill = group)) + geom_histogram(alpha = 1, binwidth=0.5)
-
+ggplot(df_table, aes(Trust_Covid_Advice_Govt, fill = group)) + geom_density(alpha = 0.5)
+ggplot(df_table, aes(Percent_One_Dose_As_Of_Nov_1, fill = group)) + geom_density(alpha = 0.5)
