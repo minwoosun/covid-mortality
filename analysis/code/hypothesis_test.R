@@ -96,7 +96,7 @@ index.intrinsic = which(names(X) %in% c("Population",
                                         "Nurses_And_Midwives_Per_1000",
                                         "People_Per_Sq_Km_of_Land" ,
                                         "GDP_Per_Capita",
-                                        "Health_Expenditure_Per_Capita",
+                                      #  "Health_Expenditure_Per_Capita",
                                         "Age_65_Older_Percent",
                                         "Trust_In_Neighborhood",
                                         "Trust_In_Govt",
@@ -127,7 +127,7 @@ best_params_intrinsic =  data.frame(interaction.depth = 2,
 best_params_modifiable = data.frame(interaction.depth = 2,
                                     n.trees = 1600,
                                     shrinkage = .007,
-                                    n.minobsinnode = 10)
+                                    n.minobsinnode = 7)
 
 
 ######################################################## 
@@ -152,7 +152,7 @@ df.IA = df.IA[order(shuffled_index),]
 df.IA = df.IA %>% select(-iso)
 
 # split indices into k evenly sized folds
-split_index = split(shuffled_index , ceiling(seq_along(shuffled_index)/k_))
+split_index = split(shuffled_index, ceiling(seq_along(shuffled_index)/k_))
 
 # --------------------- INTRINSIC model CV residuals --------------------- 
 gbm.params = best_params_intrinsic
@@ -177,9 +177,6 @@ for (i in 1:k){
 
 
 
-
-
-
 # add the residuals to intrinsic model yhat
 yhat.star = Yhat.I + res
 # ----------------  Fit full model on yhat.star -------------------
@@ -201,7 +198,7 @@ df.IA = df.IA[order(shuffled_index),]
 split_index = split(shuffled_index , ceiling(seq_along(shuffled_index)/k_))
 
 # fit full model
-gbm.params = best_params_intrinsic
+gbm.params = best_params_modifiable
 control <- trainControl(method='none')
 res.IA = c()
 Yhat.IA = c()
@@ -218,7 +215,7 @@ for (i in 1:k){
   
   Yhat = predict(boost, newdata = df.IA[index.test,])
   Yhat.IA = c(Yhat.IA, Yhat)
-  res.IA = c(res.IA, df.IA$Y[index.test] - Yhat)
+  res.IA = c(res.IA, df.IA$Y[index.test] - Yhat)   # obs - pred
 }
 
 MSE.star = mean(res^2)
@@ -279,7 +276,7 @@ for (i in 1:k){
 }
 
 
-B=1000
+B=100
 yhat.star = list()
 res.star = list()
 delta.MSE = c()

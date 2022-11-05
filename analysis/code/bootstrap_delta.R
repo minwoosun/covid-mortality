@@ -457,7 +457,7 @@ df_table = merge(df.final_sorted, df.filtered)
 
 
 df_table = df_table[order(df_table$avg, decreasing=T),]
-df_table$group = ifelse(df_table$avg > 0, "more", "less")
+df_table$group = ifelse(df_table$avg > 0, "above", "below")
 
 df_table %>% group_by(group) %>% summarise(m=mean(Percent_One_Dose_As_Of_Nov_1))
 
