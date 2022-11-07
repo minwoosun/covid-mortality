@@ -1,0 +1,438 @@
+---
+title: "World Analysis"
+author: "Min Woo Sun and David Troxell"
+date: "5/21/2022"
+output: html_document
+#Date edited: 9/15/22
+---
+
+Summary
+- Read-in data from pre-processing script. Do a few other small pre-processing steps
+
+- Fit RandomForest on static + modifiable features + grouped policies. Any combo of these types of features can be tested
+
+- Fit GBM on static + modifiable features + grouped policies. Any combo of these types of features can be tested
+
+-Partial Dependency plots as shown in paper
+
+```{r}
+here::i_am("analysis/code/analysis_world_GBMandRF.Rmd")
+library(here)
+library(dplyr)
+library(ggplot2)
+library(glmnet)
+library(caret)
+library(gbm)
+library(reshape2)
+library(reshape)
+library(pdp)
+library(plotly)
+
+source(here::here("analysis/code/helper_functions.R"))
+
+set.seed(100)
+```
+
+
+#### Preprocessing
+```{r}
+# load data
+df = read.csv(here::here("analysis/data/preprocessed","XY_WHO_trust.csv"))
+iso = df$iso
+
+# exclude features due to either multicollinearity identified in other scripts, or because of variables' status as just a name/identifier
+index.exclude = which(names(df) %in% c("iso",
+                                       "Days_Until_All_Vulnerable_Vacc_Elig",
+                                       "Ages_15_To_64_Percent",
+                                       "V1",
+                                       "Sub.region.Name",
+                                       "Vaccines_Safe_50Plus",
+                                       "Health_Expenditure_Per_Capita",
+                                       "Ages_0_To_14_Percent",
+                                       "Trust_In_Journalists",
+                                       "Percent_Health_Expenditure_Private",
+                                       "Avg_Gov_Stringency_Index",
+                                       "Percent_Ppl_Poor_Air_Quality",
+                                       "Percent_Using_Internet",
+                                       "Total_Days_Masks_At_Least_Recommended"
+                                       ))
+
+# convert region variables into factor
+df$Region.Name <- as.factor(df$Region.Name)
+df$Sub.region.Name <- as.factor(df$Sub.region.Name)
+
+
+#filter for 10M. Discussed in paper
+N = 5000000
+iso=iso[df$Population>N]
+Y = df[df$Population>N, "excess_death"]
+df = df[df$Population>N,-index.exclude]
+
+# Convert Y into crude rate from count 
+X = df %>% select(-excess_death)
+Y = (Y / X$Population) * 100000
+
+
+###########################################
+# Log transform and scale skewed features #
+###########################################
+X[,'Population'] = log(X[,'Population']+1)
+X[,"People_Per_Sq_Km_of_Land"] = log(X[,"People_Per_Sq_Km_of_Land"]+.01)
+X[,"GDP_Per_Capita"] = log(X[,"GDP_Per_Capita"]+.01)
+
+
+###########################################
+# Transform and Z-score target variable   #
+###########################################
+# apply none (0) log (1) or cube root (2) transform then scale target
+Y = cube_root(Y)
+
+
+# one-hot encode region / sub-region variables
+##############
+# continents #
+##############
+
+#define one-hot encoding function
+dummy <- dummyVars(" ~ .", data=X)
+
+#perform one-hot encoding on data frame
+X.dummy <- data.frame(predict(dummy, newdata=X))
+
+# drop columns with 0 variance -> just Oceania
+X.dummy <- X.dummy %>% select(-Region.Name.Oceania)
+
+X = X.dummy
+```
+
+
+```{r}
+##########################################
+#             set indices                #
+##########################################
+
+# static features
+index.static = which(names(X) %in% c("Population",
+                                      "Obese_Adult_Percentage",
+                                      "Hospital_Beds_Per_1000",
+                                      "Nurses_And_Midwives_Per_1000",
+                                      "People_Per_Sq_Km_of_Land" ,
+                                      "GDP_Per_Capita",
+                                      "Age_65_Older_Percent",
+                                      "Trust_In_Neighborhood",
+                                      "Trust_In_Govt",
+                                      "Confidence_In_Hospitals"
+                                     ))
+
+# modifiable features -- exclude grouping, policy 
+index.modifiable = which(names(X) %in% c("Percent_One_Dose_As_Of_Nov_1",
+                                          "Total_Days_Over_1_Test_Per_Thousand"
+                                          ))  
+
+#  modifiable policy features without PCA
+index.policy.ungrouped = which(names(X) %in% c("Days_Until_All_Vulnerable_Vacc_Elig",
+                                                "Days_Until_Masks_Recommended",
+                                                "Days_Until_Masks_Required",
+                                                "Days_Until_Workplace_Closures_Except_Key",           
+                                                "Days_Until_Testing_Key_Groups",  
+                                                 "Total_Days_Masks_Required_Public",
+                                                "Total_Days_Masks_At_Least_Recommended",
+                                                "Total_Days_Workplace_Closures_Except_Key",
+                                                "Total_Days_Workplace_Closures_Recommended",
+                                                "Total_Days_Stay_At_Home_Required_Except_Essentials",
+                                                "Total_Days_Comprehensive_Contact_Tracing",
+                                                "Total_Days_Open_Public_Testing"
+                                               ))
+
+# modifiable policy features grouped
+index.policy.grouped = which(names(X) %in% c("Govt_Swiftness_Stringency",
+                                              "Govt_Persistent_Stringency"))
+
+# index for dummy variable continent
+index.region = which(names(X) %in% c("Region.Name.Africa",
+                                     "Region.Name.Americas",
+                                     "Region.Name.Asia",
+                                     "Region.Name.Europe"
+                                     ))
+
+#modifiable trust
+index.trust = which(names(X) %in% c( "Trust_Covid_Advice_Govt"))
+```
+
+
+```{r}
+# Create Function to display Correlation Matrix
+displayCorrMat<-function(numericTrustMetrics){
+cormat1 <- round(x = cor(numericTrustMetrics), digits = 1)
+cormat1[lower.tri(cormat1)]<- NA
+melted_cormat1 <- melt(cormat1,as.is = TRUE)
+ p<-ggplot(data = melted_cormat1, aes(X1, X2, fill = value))+
+   geom_tile(color = "white")+geom_text(aes(label = value),size = 2)+
+   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                        midpoint = 0, limit = c(-1,1), space = "Lab", 
+                        name="Pearson\nCorrelation") +
+   theme_minimal()+ 
+   theme(axis.text.x = element_text(angle = 75, vjust = 1, 
+                                    size = 8, hjust = 1))+
+   coord_fixed()
+ print(p)
+}
+```
+
+
+## Random Forest
+```{r}
+
+# 
+# set.seed(100)
+# 
+# # select features for X
+# # user can select any subset of these options or use index.policy.ungrouped as well
+# fit.indices = c(index.static,
+#                 index.region,
+#                 index.trust,
+#                 index.modifiable,
+#                 index.policy.grouped)
+# 
+# #incorporate the new features
+# allData<-cbind(X[,fit.indices],Y)
+# 
+# #5 folds repeated 100 times
+# #save all predictions made throughout CV process. Each point will be predicted 100 times
+# control <- trainControl(method='repeatedcv', 
+#                         number=5, 
+#                         repeats=100,
+#                         savePredictions ="all") 
+# 
+# #range of hyperparameter values to try
+# mtry <- seq(1,20)
+# tunegrid <- expand.grid(mtry=mtry)
+# 
+# #run cv process
+# rf<- train(Y~.,data=allData, method='rf',tuneGrid=tunegrid, trControl=control )
+# 
+# #visualize results
+# #cv plot
+# plot(rf)
+# #variable importance
+# plot(varImp(rf)) 
+# 
+# #obtain all predictions made in cv process
+# allPreds<-rf$pred
+# #obtain best hyperparameter value
+# finalMtry<-rf$bestTune
+# 
+# #find the CV predictions (i.e. preval) for best hyperparameter
+# finalSubset<-subset(allPreds,mtry==as.numeric(finalMtry[1]))
+# 
+# preds<-finalSubset$pred
+# actual<-finalSubset$obs
+# 
+# #get boxplot of all CV RMSE
+# allRMSERf <-c()
+# index<-1
+# for(i in 1:100){
+#   predsTemp<-preds[index:(index+nrow(allData)-1)]
+#   actualTemp<-actual[index:(index+nrow(allData)-1)]
+#   preds_untrsf <- predsTemp^3
+#   actual_untrsf <-  actualTemp^3
+#   allRMSERf <- c(allRMSERf,compute_rMSE(preds_untrsf, actual_untrsf))
+#   index<-index+nrow(allData)
+# }
+# boxplot(allRMSERf)
+# 
+# #get these predictions on original scale
+# preds_untrsf <-  preds^3
+# actual_untrsf <-  actual^3
+# 
+# #look at overall RMSE and correlation btwn predictions and true values
+# compute_rMSE(preds_untrsf, actual_untrsf)
+# cor(preds_untrsf, actual_untrsf, method="spearman")
+```
+
+## Gradient Boosting 
+```{r}
+
+set.seed(100)
+
+# select features for X
+# user can select any subset of these options or use index.policy.ungrouped as well
+fit.indices = c(index.static,
+                index.region,
+                index.trust,
+                index.modifiable,
+                index.policy.grouped)
+
+#incorporate the new features
+allData<-cbind(X[,fit.indices],Y)
+
+#5 folds repeated 100 times
+#save all predictions made throughout CV process. Each point will be predicted 100 times
+control <- trainControl(method='repeatedcv', 
+                        number=5, 
+                        repeats=100,savePredictions ="all")
+
+#define hyperparameter grid
+n.trees=seq(1000,1600,200)
+interaction.depth=2
+shrinkage=c(.005,.007,.01,.05)
+minobsinnode=c(3,5,7,10)
+#make grid
+tunegrid <- expand.grid(n.trees=n.trees,interaction.depth=interaction.depth,shrinkage=shrinkage,n.minobsinnode=minobsinnode)
+
+#perform cv process
+boost<- train(Y~.,data=allData, method='gbm',tuneGrid=tunegrid, trControl=control, verbose=F)
+
+#visualize results
+plot(boost)
+
+#obtain all predictions made in cv process
+allPreds<-boost$pred
+#obtain best hyperparameter values
+FinalNumTrees<-boost[["bestTune"]][1]
+FinalShrinkage<-boost[["bestTune"]][3]
+Finalminobs<-boost[["bestTune"]][4]
+FinalInteractionDepth<-2 #let's choose depth of 2 just for interpretability (since 3 and 4 didn't improve things much. This is a fairly arbitrary choice, however, and can change)
+
+
+#obtain individual predictions we want
+finalSubset<-subset(allPreds,n.trees==as.numeric(FinalNumTrees) & shrinkage==as.numeric(FinalShrinkage) & interaction.depth==FinalInteractionDepth &n.minobsinnode==as.numeric(Finalminobs))
+
+preds<-finalSubset$pred
+actual<-finalSubset$obs
+
+#get same boxplot of CV RMSE as in random forest section
+allRMSEBoost <-c()
+index<-1
+for(i in 1:100){
+  predsTemp<-preds[index:(index+nrow(allData)-1)]
+  actualTemp<-actual[index:(index+nrow(allData)-1)]
+  preds_untrsf <- predsTemp^3
+  actual_untrsf <-  actualTemp^3
+  allRMSEBoost <- c(allRMSEBoost,compute_rMSE(preds_untrsf, actual_untrsf))
+  index<-index+nrow(allData)
+}
+boxplot(allRMSEBoost)
+
+#get all predictions on original scale
+preds_untrsf <- preds^3
+actual_untrsf <-  actual^3
+
+#investigate overall metrics
+compute_rMSE(preds_untrsf, actual_untrsf)
+cor(preds_untrsf, actual_untrsf, method="spearman")
+
+
+# Make same variable importance plot as in paper
+# use importance found throughout process
+varImportance<-varImp(boost)
+varImportance<- as.data.frame(varImportance$importance)
+varImportance$varnames <- rownames(varImportance) # row names to column
+rownames(varImportance) <- NULL  
+varImportance<- varImportance[order(-varImportance$Overall),]
+varImportance<- varImportance[1:6,]
+varImportance$var_categ <- c(2,1,2,1,1,1) # random var category
+#plot
+ggplot(varImportance, aes(x=reorder(varnames, Overall), y=Overall)) + 
+  geom_point(lwd=3, color=varImportance$var_categ) +
+  geom_segment(color=varImportance$var_categ,aes(x=varnames,xend=varnames,y=0,yend=Overall)) +
+  labs(x ="", y = "Relative Importance")+
+  coord_flip()+theme(axis.text=element_text(size=15),
+        axis.title=element_text(size=15),legend.text=element_text(size=15),legend.title=element_text(size=15))+ theme(aspect.ratio=.9/1)
+ 
+
+# output parameters
+gbm.final.params = list(FinalNumTrees, 
+                        FinalShrinkage, 
+                        Finalminobs, 
+                        data.frame(shrinkage=FinalInteractionDepth)
+                        )
+
+path_output = here::here("analysis/data/preprocessed/")
+save(gbm.final.params, file=paste0(path_output ,"gbm_final_params.RData"))
+```
+
+
+
+## Partial Dependency Plots as in Paper
+```{r}
+par(mfrow=c(2,1))
+
+##############
+#   1-d PDP  #    
+##############
+VaxPartial<- partial(boost, pred.var = "Percent_One_Dose_As_Of_Nov_1", train=allData[,-20])
+# VaxPartial$yhat <- VaxPartial$yhat^3
+plot(VaxPartial, main="Partial Dependency - Percent One Dose As of Nov. 1",type="l",lwd=4,col="cyan3",xlab="% with >= 1 Dose",cex.axis=1.5,cex.lab=1.5,cex.main=1.5)
+#Add in Canada and US, for example
+index.USA = which(iso == "USA")
+index.CAN = which(iso == "CAN")
+USVax<-allData[index.USA,"Percent_One_Dose_As_Of_Nov_1"]
+CanVax<-allData[index.CAN,"Percent_One_Dose_As_Of_Nov_1"]
+abline(v=USVax,col="blue",lwd=4)
+abline(v=CanVax,col="red",lwd=4)
+legend(x=0,y=4.25,col=c("blue","red"),legend=c("USA","Canada"),cex=1.2,fill=c("blue","red"), bty="n")
+
+TrustPartial<- partial(boost, pred.var = "Trust_Covid_Advice_Govt", train=allData[,-20])
+# TrustPartial$yhat <- TrustPartial$yhat^3
+plot(TrustPartial,type="line",main="Partial Dependency - Trust COVID-19 Govt. Advice",lwd=4,col="cyan3",cex.axis=1.5,xlab="% Trusting Govt COVID-19 Advice",cex.lab=1.5,cex.main=1.5)
+#Add in Canada and US, for example
+USVax<-allData[index.USA,"Trust_Covid_Advice_Govt"]
+CanVax<-allData[index.CAN,"Trust_Covid_Advice_Govt"]
+abline(v=USVax,col="blue",lwd=4)
+abline(v=CanVax,col="red",lwd=4)
+legend(x=0.43,y=4.6,col=c("blue","red"),legend=c("USA","Canada"),cex=1.2,fill=c("blue","red"), bty="n")
+
+
+# AgePartial<- partial(boost, pred.var = "Age_65_Older_Percent", train=allData[,-20])
+# plot(ObesePartial,type="line",main="Age_65_Older_Percentt",lwd=4,col="coral1",cex.axis=1.5,xlab="% Population Aged >= 65 Years",cex.lab=1.5,cex.main=1.5)
+# 
+# HospitalPartial<- partial(boost, pred.var = "Confidence_In_Hospitals", train=allData[,-20])
+# plot(ObesePartial,type="line",main="Confidence_In_Hospitals",lwd=4,col="coral1",cex.axis=1.5,xlab="% w/ Confidence in Nation's Hospitals",cex.lab=1.5,cex.main=1.5)
+# 
+# GDPPartial<- partial(boost, pred.var = "GDP_Per_Capita", train=allData[,-20])
+# plot(NeighborhoodPartial,main="GDP_Per_Capita",type="l",lwd=4,col="coral1",cex.axis=1.5,xlab="log(GDP Per Capita)",cex.lab=1.5,cex.main=1.5)
+
+
+##############
+#   3-d PDP  #    
+##############
+predVar="GDP_Per_Capita"
+predVar2="Trust_Covid_Advice_Govt"
+
+a<-boost %>%
+partial(pred.var = c(predVar, predVar2), chull = TRUE, progress = TRUE)
+dens <- akima::interp(x = a[,1], y = a[,2], z = a$yhat)
+dens$z<-dens$z^3
+a$yhat<-a$yhat^3
+p3 <- plot_ly(x = dens$y, 
+          y = dens$x, 
+          z = dens$z,
+          colors = c("blue", "grey", "red"),
+          type = "surface")
+p3 <- p3 %>% layout(scene = list(xaxis = list(title = "% Trust Govt COVID Advice"),
+                             yaxis = list(title = "log(GDP Per Capita)"),
+                             zaxis = list(title = "Partial Dependence")))
+show(p3)
+
+
+#other partial dependency plot
+
+predVar="Percent_One_Dose_As_Of_Nov_1"
+predVar2="Obese_Adult_Percentage"
+
+a<-boost %>%
+partial(pred.var = c(predVar, predVar2), chull = TRUE, progress = TRUE)
+dens <- akima::interp(x = a[,1], y = a[,2], z = a$yhat)
+dens$z<-dens$z^3
+a$yhat<-a$yhat^3
+p3 <- plot_ly(x = dens$y, 
+          y = dens$x, 
+          z = dens$z,
+          colors = c("blue", "grey", "red"),
+          type = "surface")
+p3 <- p3 %>% layout(scene = list(xaxis = list(title = "% w/ BMI >= 30"),
+                             yaxis = list(title = "% w/ >=1 Vaccine Dose"),
+                             zaxis = list(title = "Partial Dependence")))
+show(p3)
+```

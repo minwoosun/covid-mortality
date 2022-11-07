@@ -146,7 +146,7 @@ best_params_modifiable = data.frame(interaction.depth = 2,
 
 
 #####BOOTSTRAPPING SCHEME / HYPOTHESIS TEST ####
-set.seed(1234)
+set.seed(888)
 #manually set sampling methodology to help reproducibility issues across versions/machines
 RNGkind(sample.kind = "Rounding") 
 
@@ -186,6 +186,7 @@ boost<- train(Y~.,data=IA, method='gbm',tuneGrid=tunegrid, trControl=control, ve
 allPreds<-boost$pred
 allPreds<-allPreds[order(allPreds$rowIndex),]
 allPreds<-allPreds[,1:2]
+allPreds<-allPreds^3
 
 residuals_observed<-allPreds$obs-allPreds$pred
 
@@ -210,12 +211,13 @@ boost<- train(Y~.,data=I, method='gbm',tuneGrid=tunegrid, trControl=control, ver
 allPreds<-boost$pred
 allPreds<-allPreds[order(allPreds$rowIndex),]
 allPreds<-allPreds[,1:2]
+allPreds<-allPreds^3
 
 #get original residuals from intrinsic alone
 residuals<-allPreds$obs-allPreds$pred 
 
 #create observed test statistic now that we have residuals from intrinsic alone
-observed_stat<-(1/num_countries)*sum(residuals^2)-(1/num_countries)*sum(residuals_observed^2)
+observed_stat<-sqrt((1/num_countries)*sum(residuals^2))-sqrt((1/num_countries)*sum(residuals_observed^2))
 
 #STEP 3: BOOTSTRAP THE RESIDUALS
 
@@ -255,7 +257,7 @@ IA$y_b_star<-y_b_star[,i]
 boost<- train(y_b_star~.,data=IA, method='gbm',tuneGrid=tunegrid, trControl=control, verbose=F)
 allPreds<-boost$pred
 allPreds<-allPreds[order(allPreds$rowIndex),]
-allPreds<-allPreds[,1:2]
+allPreds<-allPreds[,1:2] #no need to cube since y_b_star already cubed 
 residuals_star[,i]<-allPreds$obs-allPreds$pred
 
 #update user on progress
@@ -267,17 +269,16 @@ if(i%%100==0){
 #STEP 5: CREATE NULL DISTRIBUTION and PLOT RESULTS
 
 #find the RMSE for each residual vector for intrinsic + actionable model
-IA_RMSE<-(1/num_countries)*colSums(residuals_star^2)
+IA_RMSE<-sqrt((1/num_countries)*colSums(residuals_star^2))
 #find the RMSE for each residual vector for intrinsic model
-I_RMSE<-(1/num_countries)*colSums(bootstrappedResid^2)
+I_RMSE<-sqrt((1/num_countries)*colSums(bootstrappedResid^2))
 #null distribution is the difference of these B rmse values
 
 #plot the results
 differences<-I_RMSE - IA_RMSE
-# observed_stat <- (observed_stat)^(1/3)
-# hist(differences, main = "Bootstrap Null Distribution", xlab = "RMSE_I - RMSE_IA", breaks=30, col=287)
-# abline(v=observed_stat,col="red",lwd=2)
-# legend("topleft", "Observed Test Statistic", fill="red", box.lwd = 0)
+hist(differences, main = "Null Distribution from Bootstrapping Scheme", xlab = "I_RMSE - IA_RMSE")
+abline(v=observed_stat,col="red",lwd=3)
+legend("topleft", "Observed Test Statistic", fill="red")
 
 #Empirical p-value
 empirical_p<-sum(differences>observed_stat)/B
@@ -285,21 +286,20 @@ print(paste0("p-value: ", empirical_p))
 print(paste0("observed test statistic: ", observed_stat))
 
 
-
-
 df = data.frame(null=differences)
 
 p <-
   ggplot(df, aes(x=null)) + 
-  geom_histogram(bins=50, colour="gray61", fill="gray61") +
+  geom_histogram(bins=30, colour="gray61", fill="gray61") +
   geom_vline(xintercept = observed_stat, linetype="dashed", 
-             color = "red", size=0.8) +
+             color = "blue", size=0.8) +
   theme_minimal() +
   xlab("RMSE difference") +
   ylab("Count") +
-  ggtitle("Bootstrap Null Distribution for RMSE difference (10,000 iterations)") + 
+  ggtitle("Bootstrap Null Distribution for RMSE difference (10000 iterations)") + 
   #annotate(geom="text", x=-34, y=750, label="p-value: 0.001",
   #         color="blue") +
-  annotate(geom="text", x=15, y=750, label="Observed RMSE \n difference: 8.3",
-           color="red")
+  annotate(geom="text", x=5, y=100, label="Observed RMSE \n difference: 19",
+           color="blue") + geom_rug()
 p
+
