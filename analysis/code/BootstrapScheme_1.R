@@ -151,7 +151,7 @@ set.seed(888)
 RNGkind(sample.kind = "Rounding") 
 
 #specify number of re-samples taken
-B<-1000
+B<-10000
 #specify number of countries used in the test
 num_countries<-nrow(X)
 
@@ -296,10 +296,15 @@ p <-
   theme_minimal() +
   xlab("RMSE difference") +
   ylab("Count") +
-  ggtitle("Bootstrap Null Distribution for RMSE difference (10000 iterations)") + 
+  ggtitle("Bootstrap Null Distribution (10000 iterations)") + 
   #annotate(geom="text", x=-34, y=750, label="p-value: 0.001",
   #         color="blue") +
-  annotate(geom="text", x=5, y=100, label="Observed RMSE \n difference: 19",
+  annotate(geom="text", x=1, y=800, label="Observed RMSE \n difference: 11.7",
            color="blue") + geom_rug()
 p
 
+
+# finalobj <- list()
+# finalobj[[1]] <- observed_stat
+# finalobj[[2]] <- differences
+# # save(finalobj, file=here::here("analysis/data/preprocessed","hypothesis_test.RData"))
