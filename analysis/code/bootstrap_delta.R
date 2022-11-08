@@ -5,6 +5,7 @@ library(ggplot2)
 library(glmnet)
 library(caret)
 library(gbm)
+library(gridExtra)
 
 source(here::here("analysis/code/helper_functions.R"))
 
@@ -450,18 +451,36 @@ df.filtered = df_xy[df_xy$iso %in% country.filter,]
 df.final_sorted = df.final_ %>% select(iso, avg)
 
 df.filtered = df.filtered %>% select(iso,
-                                       Percent_One_Dose_As_Of_Nov_1,
-                                       Trust_Covid_Advice_Govt)
+                                      Percent_One_Dose_As_Of_Nov_1,
+                                      Trust_Covid_Advice_Govt)
 
 df_table = merge(df.final_sorted, df.filtered)
 
 
 df_table = df_table[order(df_table$avg, decreasing=T),]
-df_table$group = ifelse(df_table$avg > 0, "above", "below")
+df_table$group = ifelse(df_table$avg > 0, "right", "left")
 
-df_table %>% group_by(group) %>% summarise(m=mean(Percent_One_Dose_As_Of_Nov_1))
+median_one_dose <- df_table %>% group_by(group) %>% dplyr::summarise(grp.median=median(Percent_One_Dose_As_Of_Nov_1))
+median_covid_advice <- df_table %>% group_by(group) %>% dplyr::summarise(grp.median=median(Trust_Covid_Advice_Govt))
 
 
-# plot histograms comparing countries with delta below and above 0
-ggplot(df_table, aes(Trust_Covid_Advice_Govt, fill = group)) + geom_density(alpha = 0.5)
-ggplot(df_table, aes(Percent_One_Dose_As_Of_Nov_1, fill = group)) + geom_density(alpha = 0.5)
+
+  # plot histograms comparing countries with delta below and above 0
+plot.trust <-  ggplot(df_table, aes(Trust_Covid_Advice_Govt, color = group, fill=group)) + 
+                  geom_density(alpha = 0.5, size=1) +
+                  theme_minimal() +
+                  geom_vline(data=median_covid_advice, aes(xintercept=grp.median, color=group),
+                             linetype="dashed", size=1) +
+                  xlab("Trust Covid Advice Govt")
+
+plot.vax <-  ggplot(df_table, aes(Percent_One_Dose_As_Of_Nov_1, color = group, fill=group)) + 
+              geom_density(alpha = 0.5, size=1) +
+              theme_minimal() +
+              geom_vline(data=median_one_dose, aes(xintercept=grp.median, color=group),
+                         linetype="dashed", size=1) +
+              xlab("Percent One Dose as of Nov. 1")
+
+
+grid.arrange(plot.trust, plot.vax, ncol = 2, nrow = 1)
+
+
