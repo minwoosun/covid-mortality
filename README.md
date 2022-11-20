@@ -8,4 +8,4 @@ To reproduce the main results in the paper, please run the following:
 3. Gradient Boosting and Random Forest models: `analysis/code/analysis_word_GBMandRF.Rmd`. 
 4. Linear models: `analysis/code/analysis_word_linearModels.Rmd`. 
 5. For the boostrap confidence intervals of delta run `analysis/code/bootstrap_delta.R`.
-6. For the permutation test run `analysis/code/permutation.R`. Note that this can take a long time due to 10k iterations.
+6. For the bootstrap hypothesis test run `analysis/code/hypothesis_test.R`.
