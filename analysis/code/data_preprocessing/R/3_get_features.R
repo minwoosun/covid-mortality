@@ -2,11 +2,7 @@
 
 ############################################################################################
 # ::DESCRIPTION::
-#     
-#     
-#
-# @ INPUT: [csv] 
-# @ OUTPUT: [csv] 
+# This script outputs a csv of features (aside from trust)  
 ############################################################################################
 
 here::i_am("analysis/code/data_preprocessing/R/3_get_features.R")
