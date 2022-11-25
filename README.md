@@ -1,5 +1,7 @@
 # Do Public Health Efforts Matter? Explaining Cross-Country Heterogeneity in Excess Death During the COVID-19 Pandemic
 
+Prerint: https://www.medrxiv.org/content/10.1101/2022.11.21.22282563v1
+
 The code used to produce all the results and figures in the paper can be found in `analysis/code/` and the data can be found in `analysis/data/`. 
 
 To reproduce the main results in the paper, please run the following:
