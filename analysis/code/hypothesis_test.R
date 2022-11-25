@@ -1,4 +1,4 @@
-#Authors: David Troxell and Win Woo Sun
+#Authors: David Troxell and Min Woo Sun
 #Date: 10/31/22
 #Description: Generates a bootstrapped null distribution for the hypothesis test specified in the paper, and reports empirical p-value
 
