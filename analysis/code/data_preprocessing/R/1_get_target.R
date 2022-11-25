@@ -5,7 +5,7 @@
 #     - downloaded csvs from https://www.who.int/data/sets/global-excess-deaths-associated-with-covid-19-modelled-estimates
 #     - downloaded at 7/2/2022 10:50am PST
 #     - Script to process and generate excess death response variable.  
-#     - Excess death estimates from the Economist
+#     - Excess death estimates from the World Health Organization
 #
 # @ INPUT: [csv] export_country_cumulative.csv: cumulative excess death from the Economist
 # @ INPUT: [csv] iso.csv: csv of iso3 with country names
