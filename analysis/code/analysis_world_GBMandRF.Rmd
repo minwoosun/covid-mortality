@@ -62,7 +62,7 @@ df$Region.Name <- as.factor(df$Region.Name)
 df$Sub.region.Name <- as.factor(df$Sub.region.Name)
 
 
-#filter for 10M. Discussed in paper
+#filter for 5M. Discussed in paper
 N = 5000000
 iso=iso[df$Population>N]
 Y = df[df$Population>N, "excess_death"]
@@ -323,80 +323,173 @@ compute_rMSE(preds_untrsf, actual_untrsf)
 cor(preds_untrsf, actual_untrsf, method="spearman")
 
 
-# Make same variable importance plot as in paper
+# Make same type of variable importance plot as in paper
 # use importance found throughout process
 varImportance<-varImp(boost)
 varImportance<- as.data.frame(varImportance$importance)
 varImportance$varnames <- rownames(varImportance) # row names to column
 rownames(varImportance) <- NULL  
 varImportance<- varImportance[order(-varImportance$Overall),]
-#varImportance<- varImportance[1:20,] #c(1,3,9,12,15)
-#varImportance$var_categ <- c(2,2,2,2,2) # random var category
+varImportance<- varImportance[c(1:6),]
+varImportance$var_categ <- c(1,2,1,2,2,2) # random var category
 #plot
 ggplot(varImportance, aes(x=reorder(varnames, Overall), y=Overall,color=as.factor(varImportance$var_categ))) + 
-  geom_point(lwd=3, color="#00BFC4") +
-  geom_segment(color="#00BFC4",aes(x=varnames,xend=varnames,y=0,yend=Overall)) +
+  geom_point(lwd=3, color=varImportance$var_categ) +
+  geom_segment(color=varImportance$var_categ,aes(x=varnames,xend=varnames,y=0,yend=Overall)) +
   scale_color_discrete(name="Feature Type", labels = c("Modifiable")) +
-  ylab("IncNodePurity") +
-  xlab("Variable Name") +
   labs(x ="", y = "Relative Importance")+
   coord_flip()+theme(axis.text=element_text(size=15),
         axis.title=element_text(size=15),legend.text=element_text(size=15),legend.title=element_text(size=15))+
-  theme(aspect.ratio=.9/1)+
-scale_shape_manual(name = "A", values=c(Y_A = 0, Y_A_obs = 15), 
-                     labels=c(Y_A = "y_true", Y_A_obs = "y_pred"), 
-                     guide = guide_legend(order = 1))
-
+  theme(aspect.ratio=.9/1)
+  
 # output parameters
 gbm.final.params = list(FinalNumTrees, 
                         FinalShrinkage, 
                         Finalminobs, 
-                        data.frame(shrinkage=FinalInteractionDepth),
+                        data.frame(shrinkage=FinalInteractionDepth)
                         )
 
 path_output = here::here("analysis/data/preprocessed/")
 save(gbm.final.params, file=paste0(path_output ,"gbm_final_params.RData"))
 ```
 
+## Standard Deviation of Gradient Boosting Variable Importance Rankings
+```{r}
+suppressWarnings({
+set.seed(1)
+maxIter<-500
+
+#instantiate model with same hyperparameters as best model
+FinalNumTrees<-boost[["bestTune"]][1]
+FinalShrinkage<-boost[["bestTune"]][3]
+Finalminobs<-boost[["bestTune"]][4]
+FinalInteractionDepth<-2
+
+#grid only has 1 combination
+tunegrid <- expand.grid(n.trees=as.numeric(FinalNumTrees),interaction.depth=FinalInteractionDepth,shrinkage=as.numeric(FinalShrinkage),n.minobsinnode=as.numeric(Finalminobs))
+control <- trainControl(method='cv', number=5)
+
+#Repeat 100 times:
+#1) randomly leave out 5% of the data
+#2) perform 5-fold cv like normal on the 95% of data we kept
+#3) get variable importance rankings
+
+#Perform 1st iteration of this algorithm / initialize the containers
+keep<-sample(nrow(allData),76) #step 1
+allData_temp <- allData[keep,]
+boost<- train(Y~.,data=allData_temp, method='gbm',tuneGrid=tunegrid,trControl=control,verbose=F)#step 2
+varImportance<-varImp(boost) #step 3
+varImportance<- as.data.frame(varImportance$importance)
+varImportance$varnames <- rownames(varImportance) 
+rownames(varImportance) <- NULL  
+varImportance<- varImportance[order(-varImportance$Overall),]
+
+
+#Now that we have containers to append results to, continue with other iterations
+for(i in 1:(maxIter-1)){
+  keep<-sample(nrow(allData),76) #step 1
+  allData_temp <- allData[keep,]
+  boost<- train(Y~.,data=allData_temp, method='gbm',tuneGrid=tunegrid, trControl=control, verbose=F) #step 2
+  varImportance_repetition<-varImp(boost) #step 3
+  #append results
+  varImportance_repetition<- as.data.frame(varImportance_repetition$importance)
+  varImportance_repetition$varnames <- rownames(varImportance_repetition) # row names to column
+  rownames(varImportance_repetition) <- NULL  
+  varImportance <- merge(varImportance, varImportance_repetition, by ='varnames',all.x = TRUE,all.y = TRUE)
+}
+
+#get ranks
+varRanks<-varImportance
+for(i in 2:(maxIter+1)){
+  varRanks[,i]<-order(order(-varImportance[,i]))
+}
+
+#get summary stats on results
+repeated_importance_df <- data.frame('varnames'=varImportance$varnames,'Mean_Rel_Imp'=rowMeans(varImportance[,2:(maxIter+1)]),'Rel_Imp_Sd' = apply(varImportance[,2:(maxIter+1)], 1, sd), 'Mean_Rank' = rowMeans(varRanks[,2:(maxIter+1)]), 'Rank_Sd' = apply(varRanks[,2:(maxIter+1)], 1, sd), 'Rank_Min' =  apply(varRanks[,2:(maxIter+1)], 1, min), 'Rank_Max' =  apply(varRanks[,2:(maxIter+1)], 1, max))
+
+#order this new df
+repeated_importance_df<-repeated_importance_df[order(repeated_importance_df$Mean_Rank), ] 
+
+#same plot as paper
+ggplot(repeated_importance_df, aes(x=Mean_Rank, y=reorder(varnames,-Mean_Rank))) +   
+  geom_point() +
+  geom_errorbar(aes(xmin = Mean_Rank - Rank_Sd, xmax = Mean_Rank +Rank_Sd), width=0.1) +
+  xlab("Importance Rank") +
+  ylab("Feature Name") +
+  geom_vline(xintercept = 1, linetype=2, color="red", size=0.5) +
+  theme_minimal()+
+  theme(text = element_text(size=18))+
+  xlim(1,20)+
+  scale_x_continuous(breaks=c(1,5,10,15,20))
+
+
+})
+```
+
 
 ## Partial Dependency Plots as in Paper
 ```{r}
-par(mfrow=c(2,2))
+par(mfrow=c(2,3))
 
 ##############
 #   1-d PDP  #    
 ##############
 VaxPartial<- partial(boost, pred.var = "Percent_One_Dose_As_Of_Nov_1", train=allData[,-20])
-plot(VaxPartial,main="Percent_One_Dose_As_Of_Nov_1",type="l",lwd=4,col="cyan3",xlab="% with >= 1 Dose",cex.axis=1.5,cex.lab=1.5,cex.main=1.5)
+p0<-plot(VaxPartial,main="Percent_One_Dose_As_Of_Nov_1",type="l",lwd=4,col="cyan3",xlab="% with >= 1 Dose",cex.axis=1.5,cex.lab=1.5,cex.main=1.5)
 
-ObesePartial<- partial(boost, pred.var = "Trust_Covid_Advice_Govt", train=allData[,-20])
-plot(ObesePartial,type="line",main="Trust_Covid_Advice_Govt",lwd=4,col="cyan3",cex.axis=1.5,xlab="% w/ BMI >= 30",cex.lab=1.5,cex.main=1.5)
+HospPartial<- partial(boost, pred.var = "Confidence_In_Hospitals", train=allData[,-20])
+p3<- plot(HospPartial,type="line",main="Confidence_In_Hospitals",lwd=4,col="coral1",cex.axis=1.5,xlab="% w/ BMI >= 30",cex.lab=1.5,cex.main=1.5)
 
-ObesePartial<- partial(boost, pred.var = "Trust_In_Govt", train=allData[,-20])
-plot(ObesePartial,type="line",main="Trust_In_Govt",lwd=4,col="cyan3",cex.axis=1.5,xlab="% w/ BMI >= 30",cex.lab=1.5,cex.main=1.5)
+TrustPartial<- partial(boost, pred.var = "Trust_Covid_Advice_Govt", train=allData[,-20])
+p1<- plot(TrustPartial,type="line",main="Trust_Covid_Advice_Govt",lwd=4,col="cyan3",cex.axis=1.5,xlab="% w/ BMI >= 30",cex.lab=1.5,cex.main=1.5)
 
-ObesePartial<- partial(boost, pred.var = "Confidence_In_Hospitals", train=allData[,-20])
-plot(ObesePartial,type="line",main="Confidence_In_Hospitals",lwd=4,col="cyan3",cex.axis=1.5,xlab="% w/ BMI >= 30",cex.lab=1.5,cex.main=1.5)
+GDPPartial<- partial(boost, pred.var = "GDP_Per_Capita", train=allData[,-20])
+p2<-plot(GDPPartial,main="GDP_Per_Capita",type="l",lwd=4,col="coral1",cex.axis=1.5,xlab="log(GDP Per Capita)",cex.lab=1.5,cex.main=1.5)
 
-NeighborhoodPartial<- partial(boost, pred.var = "Govt_Swiftness_Stringency", train=allData[,-20])
-plot(NeighborhoodPartial,main="Govt_Swiftness_Stringency",type="l",lwd=4,col="cyan3",cex.axis=1.5,xlab="% Trusting Others in Neighborhood",cex.lab=1.5,cex.main=1.5)
+ObesePartial<- partial(boost, pred.var = "Obese_Adult_Percentage", train=allData[,-20])
+p5<- plot(ObesePartial,type="line",main="Obese_Adult_Percentage",lwd=4,col="coral1",cex.axis=1.5,xlab="% with BMI >= 30",cex.lab=1.5,cex.main=1.5)
 
-NeighborhoodPartial<- partial(boost, pred.var = "Govt_Persistent_Stringency", train=allData[,-20])
-plot(NeighborhoodPartial,main="Govt_Persistent_Stringency",type="l",lwd=4,col="cyan3",cex.axis=1.5,xlab="% Trusting Others in Neighborhood",cex.lab=1.5,cex.main=1.5)
+AgePartial<- partial(boost, pred.var = "Age_65_Older_Percent", train=allData[,-20])
+p4<- plot(AgePartial,type="line",main="Age_65_Older_Percentt",lwd=4,col="coral1",cex.axis=1.5,xlab="% Population Aged >= 65 Years",cex.lab=1.5,cex.main=1.5)
 
-NeighborhoodPartial<- partial(boost, pred.var = "Avg_Test_", train=allData[,-20])
-plot(NeighborhoodPartial,main="Govt_Persistent_Stringency",type="l",lwd=4,col="cyan3",cex.axis=1.5,xlab="% Trusting Others in Neighborhood",cex.lab=1.5,cex.main=1.5)
+
+
+par(mfrow=c(2,1))
+
+#########################
+#   Canada + U.S. PDP  #    
+#########################
+VaxPartial<- partial(boost, pred.var = "Percent_One_Dose_As_Of_Nov_1", train=allData[,-20])
+# VaxPartial$yhat <- VaxPartial$yhat^3
+plot(VaxPartial, main="Partial Dependency - Percent One Dose As of Nov. 1",type="l",lwd=4,col="cyan3",xlab="% with >= 1 Dose",cex.axis=1.5,cex.lab=1.5,cex.main=1.5)
+#Add in Canada and US, for example
+index.USA = which(iso == "USA")
+index.CAN = which(iso == "CAN")
+USVax<-allData[index.USA,"Percent_One_Dose_As_Of_Nov_1"]
+CanVax<-allData[index.CAN,"Percent_One_Dose_As_Of_Nov_1"]
+abline(v=USVax,col="blue",lwd=4)
+abline(v=CanVax,col="red",lwd=4)
+legend(x=0,y=4.25,col=c("blue","red"),legend=c("USA","Canada"),cex=1.2,fill=c("blue","red"), bty="n")
+
+TrustPartial<- partial(boost, pred.var = "Trust_Covid_Advice_Govt", train=allData[,-20])
+# TrustPartial$yhat <- TrustPartial$yhat^3
+plot(TrustPartial,type="line",main="Partial Dependency - Trust COVID-19 Govt. Advice",lwd=4,col="cyan3",cex.axis=1.5,xlab="% Trusting Govt COVID-19 Advice",cex.lab=1.5,cex.main=1.5)
+#Add in Canada and US, for example
+USVax<-allData[index.USA,"Trust_Covid_Advice_Govt"]
+CanVax<-allData[index.CAN,"Trust_Covid_Advice_Govt"]
+abline(v=USVax,col="blue",lwd=4)
+abline(v=CanVax,col="red",lwd=4)
+legend(x=0.43,y=4.6,col=c("blue","red"),legend=c("USA","Canada"),cex=1.2,fill=c("blue","red"), bty="n")
+
+
 
 
 ##############
 #   3-d PDP  #    
 ##############
 
-predVar="Percent_One_Dose_As_Of_Nov_1"
-predVar2="Obese_Adult_Percentage"
-
-#predVar="GDP_Per_Capita"
-#predVar2="Trust_Covid_Advice_Govt"
+predVar="GDP_Per_Capita"
+predVar2="Trust_Covid_Advice_Govt"
 
 a<-boost %>%
 partial(pred.var = c(predVar, predVar2), chull = TRUE, progress = TRUE)
@@ -409,7 +502,28 @@ p3 <- plot_ly(x = dens$y,
           colors = c("blue", "grey", "red"),
           type = "surface")
 p3 <- p3 %>% layout(scene = list(xaxis = list(title = "% Trust Govt COVID Advice"),
-                             yaxis = list(title = "GDP Per Capita"),
+                             yaxis = list(title = "log(GDP Per Capita)"),
+                             zaxis = list(title = "Partial Dependence")))
+show(p3)
+
+
+#other partial dependency plot
+
+predVar="Percent_One_Dose_As_Of_Nov_1"
+predVar2="Obese_Adult_Percentage"
+
+a<-boost %>%
+partial(pred.var = c(predVar, predVar2), chull = TRUE, progress = TRUE)
+dens <- akima::interp(x = a[,1], y = a[,2], z = a$yhat)
+dens$z<-dens$z^3
+a$yhat<-a$yhat^3
+p3 <- plot_ly(x = dens$y, 
+          y = dens$x, 
+          z = dens$z,
+          colors = c("blue", "grey", "red"),
+          type = "surface")
+p3 <- p3 %>% layout(scene = list(xaxis = list(title = "% w/ BMI >= 30"),
+                             yaxis = list(title = "% w/ >=1 Vaccine Dose"),
                              zaxis = list(title = "Partial Dependence")))
 show(p3)
 ```

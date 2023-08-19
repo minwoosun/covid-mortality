@@ -53,7 +53,7 @@ df$Region.Name <- as.factor(df$Region.Name)
 df$Sub.region.Name <- as.factor(df$Sub.region.Name)
 
 
-#filter for 10M. Discussed in paper
+#filter for 5M. Discussed in paper
 N = 5000000
 iso=iso[df$Population>N]
 Y = df[df$Population>N, "excess_death"]
