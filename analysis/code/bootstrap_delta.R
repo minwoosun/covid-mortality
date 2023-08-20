@@ -29,7 +29,7 @@ df$Region.Name <- as.factor(df$Region.Name)
 df$Sub.region.Name <- as.factor(df$Sub.region.Name)
 
 
-#filter for 10M instead of 1M population
+#filter for 5M
 N = 5000000
 iso=iso[df$Population>N]
 Y = df[df$Population>N, "excess_death"]
@@ -430,7 +430,7 @@ df.final_ = df.final[df.final$iso %in% country.filter,]
 df.final_ = df.final_[order(df.final_$avg),]
 row.names(df.final_) = 1:nrow(df.final_)
 
-ggplot(df.final_, aes(x=avg, y=reorder(iso,avg))) +
+plot.conf_int <- ggplot(df.final_, aes(x=avg, y=reorder(iso,avg))) +
   geom_vline(xintercept = 0, linetype=1, color="red", size=0.5) +
   geom_point() +
   geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi), width=0.1) +
@@ -458,29 +458,34 @@ df_table = merge(df.final_sorted, df.filtered)
 
 
 df_table = df_table[order(df_table$avg, decreasing=T),]
-df_table$group = ifelse(df_table$avg > 0, "right", "left")
+df_table$Group = ifelse(df_table$avg > 0, "Pos_Delta", "Neg_Delta")
 
-median_one_dose <- df_table %>% group_by(group) %>% dplyr::summarise(grp.median=median(Percent_One_Dose_As_Of_Nov_1))
-median_covid_advice <- df_table %>% group_by(group) %>% dplyr::summarise(grp.median=median(Trust_Covid_Advice_Govt))
+median_one_dose <- df_table %>% group_by(Group) %>% dplyr::summarise(grp.median=median(Percent_One_Dose_As_Of_Nov_1))
+median_covid_advice <- df_table %>% group_by(Group) %>% dplyr::summarise(grp.median=median(Trust_Covid_Advice_Govt))
 
 
 
   # plot histograms comparing countries with delta below and above 0
-plot.trust <-  ggplot(df_table, aes(Trust_Covid_Advice_Govt, color = group, fill=group)) + 
+plot.trust <-  ggplot(df_table, aes(Trust_Covid_Advice_Govt, color = Group, fill=Group)) + 
                   geom_density(alpha = 0.5, size=1) +
                   theme_minimal() +
-                  geom_vline(data=median_covid_advice, aes(xintercept=grp.median, color=group),
-                             linetype="dashed", size=1) +
+                  theme(text = element_text(size=13.5))+
+                  geom_vline(data=median_covid_advice, aes(xintercept=grp.median, color=Group),
+                             linetype="dashed", size=1)
                   xlab("Trust Covid Advice Govt")
+                 
 
-plot.vax <-  ggplot(df_table, aes(Percent_One_Dose_As_Of_Nov_1, color = group, fill=group)) + 
+plot.vax <-  ggplot(df_table, aes(Percent_One_Dose_As_Of_Nov_1, color = Group, fill=Group)) + 
               geom_density(alpha = 0.5, size=1) +
               theme_minimal() +
-              geom_vline(data=median_one_dose, aes(xintercept=grp.median, color=group),
+              theme(text = element_text(size=13.5))+
+              geom_vline(data=median_one_dose, aes(xintercept=grp.median, color=Group),
                          linetype="dashed", size=1) +
               xlab("Percent One Dose as of Nov. 1")
 
-
-grid.arrange(plot.trust, plot.vax, ncol = 2, nrow = 1)
-
-
+hlay <- rbind(c(1,1),
+              c(1,1),
+              c(1,1),
+              c(2,3),
+              c(2,3))
+grid.arrange(plot.conf_int,plot.trust, plot.vax, layout_matrix=hlay)
